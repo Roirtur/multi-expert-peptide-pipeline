@@ -1,6 +1,6 @@
 # Quick Reference Card: PlaceHolders and Data Milestone
 
-**Due Date:** February 23, 2026 | **Duration:** 11 days | **Issues:** 6
+**Due Date:** February 23, 2026 | **Days Remaining:** 11 days | **Issues:** 6
 
 ---
 
