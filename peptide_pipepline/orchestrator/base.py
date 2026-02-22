@@ -16,16 +16,22 @@ class BaseOrchestrator:
 
         for i in range(iterations):
             # 2. Filter valid peptides with Chemist Agent
+            validity_mask = self.chemist.check_validity(population)
             valid_population = [
-                p for p in population 
-                if self.chemist.check_validity(p)
+                pop for pop, valid in zip(population, validity_mask) 
+                if valid
             ]
 
-            # 3. Score candidates with Biologist Agent
+            if not valid_population:
+                break
+
+            # 3. Score candidates with Biologist Agent (Batch)
+            # Assuming predict_activity returns a list of scores
+            scores = self.biologist.predict_activity(valid_population, "target_description")
+            
             scored_population = []
-            for p in valid_population:
-                score = self.biologist.predict_activity(p, "target_description")
-                scored_population.append({"sequence": p, "score": score})
+            for peptide, score in zip(valid_population, scores):
+                scored_population.append({"sequence": peptide, "score": score})
 
             # 4. Keep Top-K best candidates
             scored_population.sort(key=lambda x: x["score"], reverse=True)
