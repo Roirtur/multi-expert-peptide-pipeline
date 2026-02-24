@@ -23,3 +23,11 @@ class BaseGenerator(ABC):
         Modifies or evolves existing peptides based on feedback or mutation operators.
         """
         raise NotImplementedError("Subclasses must implement modify_peptides method.")
+
+    @abstractmethod
+    def train(self, data: Any, **kwargs) -> None:
+        """
+        Trains the generator model on the provided data.
+        We might want to change kwargs argument to something like epoch, lr, output_dir...
+        """
+        raise NotImplementedError("Subclasses must implement train method.")
