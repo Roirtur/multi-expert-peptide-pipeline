@@ -68,9 +68,10 @@ class VAEGenerator(BaseGenerator):
         with torch.no_grad():
             z = torch.randn(count, self.latent_dim, device=self.device)
             one_hot = self.decoder(z)
-            # Convert one-hot to amino acid indices
+            # Reshape to (count, num_positions, 20) then argmax over amino acids
+            num_positions = self.input_dim // 20
+            one_hot = one_hot.view(count, num_positions, 20)
             amino_acid_indices = torch.argmax(one_hot, dim=-1).cpu().numpy()
-            # Map indices to amino acid characters (0-19 -> A, C, D, ..., Y)
             amino_acids = "ACDEFGHIKLMNPQRSTVWY"
             peptides = ["".join([amino_acids[idx] for idx in seq]) for seq in amino_acid_indices]
         return peptides
@@ -82,7 +83,7 @@ class VAEGenerator(BaseGenerator):
         """
         return self.generate_peptides(len(peptides))
 
-    def train(self, data: torch.Tensor, epochs: int = 50, batch_size: int = 32, lr: float = 1e-3) -> None:
+    def train_model(self, data: torch.Tensor, epochs: int = 50, batch_size: int = 32, lr: float = 1e-3) -> None:
         """
         Trains the VAE on peptide data.
         Args:
@@ -128,4 +129,4 @@ class VAEGenerator(BaseGenerator):
         Convenience method to train the VAE from raw peptide sequences.
         """
         one_hot = self._peptides_to_one_hot(peptides)
-        self.train(one_hot, **kwargs)
+        self.train_model(one_hot, **kwargs)

@@ -1,14 +1,17 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
+import torch.nn as nn
+import torch
 
-class BaseGenerator(ABC):
+class BaseGenerator(nn.Module, ABC):
     """
     Base class for the Designer Agent (Generator).
     Responsible for proposing candidate peptides.
     """
 
     def __init__(self):
-        pass
+        super().__init__()
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
     @abstractmethod
     def generate_peptides(self, count: int, constraints: Optional[Dict[str, Any]] = None) -> List[str]:
@@ -25,7 +28,7 @@ class BaseGenerator(ABC):
         raise NotImplementedError("Subclasses must implement modify_peptides method.")
 
     @abstractmethod
-    def train(self, data: Any, **kwargs) -> None:
+    def train_model(self, data: Any, **kwargs) -> None:
         """
         Trains the generator model on the provided data.
         We might want to change kwargs argument to something like epoch, lr, output_dir...
