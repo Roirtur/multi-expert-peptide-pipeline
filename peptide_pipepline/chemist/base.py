@@ -11,17 +11,16 @@ class BaseChemist(ABC):
         pass
 
     @abstractmethod
-    def check_validity(self, peptide: str) -> bool:
+    def check_validity(self, peptides: List[str]) -> List[bool]:
         """
-        Checks if a single peptide sequence constitutes a valid molecule 
-        according to defined chemical rules.
+        Checks if a list of peptide sequences satisfy validity rules.
         """
         raise NotImplementedError("Subclasses must implement check_validity method.")
 
     @abstractmethod
-    def calculate_properties(self, peptide: str) -> Dict[str, float]:
+    def calculate_properties(self, peptides: List[str]) -> List[Dict[str, float]]:
         """
-        Calculates physicochemical properties (e.g., charge, hydrophobicity, solubility proxy).
+        Calculates physicochemical properties for a list of peptides.
         """
         raise NotImplementedError("Subclasses must implement calculate_properties method.")
 
@@ -30,9 +29,5 @@ class BaseChemist(ABC):
         Filters a list of peptides based on chemical constraints.
         Default implementation iterates using check_validity, but can be overridden.
         """
-        valid_peptides = []
-        for p in peptides:
-            if self.check_validity(p):
-                # Placeholder for more complex constraint checking logic
-                valid_peptides.append(p)
-        return valid_peptides
+        raise NotImplementedError("Subclasses must implement filter_peptides method.")
+
