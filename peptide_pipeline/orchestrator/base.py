@@ -1,8 +1,8 @@
 from typing import List, Dict, Any
 
-from peptide_pipepline.generator.base import BaseGenerator
-from peptide_pipepline.chemist.base import BaseChemist
-from peptide_pipepline.biologist.base import BaseBiologist
+from peptide_pipeline.generator.base import BaseGenerator
+from peptide_pipeline.chemist.base import BaseChemist
+from peptide_pipeline.biologist.base import BaseBiologist
 
 class BaseOrchestrator:
     def __init__(self, generator: BaseGenerator, chemist: BaseChemist, biologist: BaseBiologist):
