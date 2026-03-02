@@ -1,9 +1,11 @@
+import csv
 import sys
 import os
 import pandas as pd
 import torch
 from typing import List, Any, Optional
-from peptide_pipeline.dataloader.base import BaseDataLoader
+from base import BaseDataLoader
+import re
 
 AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWY"
 
@@ -28,26 +30,57 @@ class VAEDataLoader(BaseDataLoader):
         """
         Loads peptide sequences from a CSV file, filtering by length
         and removing sequences with non-standard amino acids.
-
-        Args:
-            source: Path to the CSV file.
-
-        Returns:
-            List of valid peptide sequences.
         """
-        df = pd.read_csv(source)
+        # Try reading header with csv to find the sequence column index
+        try:
+            with open(source, newline='', encoding='utf-8') as f:
+                reader = csv.reader(f)
+                header = next(reader)
+        except Exception:
+            # try with latin-1 if utf-8 fails
+            with open(source, newline='', encoding='latin-1') as f:
+                reader = csv.reader(f)
+                header = next(reader)
 
-        # Strip whitespace from sequence column
-        df["SEQUENCE"] = df["SEQUENCE"].astype(str).str.strip()
+        def clean(h: str) -> str:
+            return re.sub(r'[^a-z0-9]', '', str(h).lower())
+
+        cleaned = [clean(h) for h in header]
+        seq_idx = None
+        for i, ch in enumerate(cleaned):
+            if 'sequence' in ch:
+                seq_idx = i
+                print( "i ch", i, ch)
+
+                break
+        if seq_idx is None:
+            raise KeyError(f"Could not find a 'sequence' column in CSV header. Found columns: {header}")
+
+        # Read full CSV into DataFrame (let pandas handle quoting/delimiters)
+        try:
+            df = pd.read_csv(source, dtype=str, skipinitialspace=True)
+        except Exception as e:
+            raise RuntimeError(f"Failed to read CSV with pandas: {e}")
+
+        # Use positional index to extract the sequence column (robust to weird column names)
+        if seq_idx >= len(df.columns):
+            raise KeyError(f"Detected sequence column index {seq_idx} but DataFrame has columns {list(df.columns)}")
+
+        original_col_name = df.columns[seq_idx]
+        seq_values = df[original_col_name].astype(str).str.strip().str.replace('"', "", regex=False)
+
+        # Keep a stable column name
+        df = df.copy()
+        df["sequence"] = seq_values
 
         # Filter by length
-        df = df[df["SEQUENCE"].str.len() == self.seq_length]
+        df = df[df["sequence"].str.len() == self.seq_length]
 
         # Filter out sequences with non-standard amino acids
         valid_aa_set = set(AMINO_ACIDS)
-        df = df[df["SEQUENCE"].apply(lambda s: all(c in valid_aa_set for c in s))]
+        df = df[df["sequence"].apply(lambda s: all(c in valid_aa_set for c in s))]
 
-        self._peptides = df["SEQUENCE"].tolist()
+        self._peptides = df["sequence"].tolist()
         self._one_hot = self._encode(self._peptides)
 
         print(f"Loaded {len(self._peptides)} valid sequences of length {self.seq_length}")
