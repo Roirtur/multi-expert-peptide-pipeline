@@ -5,7 +5,7 @@ import time
 import argparse
 import os
 
-MAX_CONCURRENT_REQUESTS = 20
+MAX_CONCURRENT_REQUESTS = 50
 
 async def fetch_detail(session, p_id):
     detail_url = f"https://dbaasp.org/peptides/{p_id}"
