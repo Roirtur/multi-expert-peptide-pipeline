@@ -27,7 +27,6 @@ class BaseChemist(ABC):
     def filter_peptides(self, peptides: List[str], constraints: Dict[str, Any]) -> List[str]:
         """
         Filters a list of peptides based on chemical constraints.
-        Default implementation iterates using check_validity, but can be overridden.
         """
         raise NotImplementedError("Subclasses must implement filter_peptides method.")
 
