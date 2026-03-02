@@ -37,7 +37,6 @@ class VAEGenerator(BaseGenerator):
             nn.Linear(latent_dim, hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, input_dim),
-            nn.Softmax(dim=-1)  # Output probabilities for each amino acid
         )
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -72,6 +71,7 @@ class VAEGenerator(BaseGenerator):
             num_positions = self.input_dim // 20
             one_hot = one_hot.view(count, num_positions, 20)
             amino_acid_indices = torch.argmax(one_hot, dim=-1).cpu().numpy()
+            one_hot = F.softmax(one_hot, dim=-1)  # get probabilities instead of hard argmax
             amino_acids = "ACDEFGHIKLMNPQRSTVWY"
             peptides = ["".join([amino_acids[idx] for idx in seq]) for seq in amino_acid_indices]
         return peptides
@@ -101,9 +101,13 @@ class VAEGenerator(BaseGenerator):
             for batch in dataloader:
                 x = batch[0].to(self.device)
                 x_recon, mu, log_var = self.forward(x)
-
-                # VAE loss: reconstruction + KL divergence
-                recon_loss = F.mse_loss(x_recon, x, reduction="sum")
+                num_positions = self.input_dim // 20
+                one_hot_reshaped = x.view(-1, num_positions, 20)
+                recon_reshaped = x_recon.view(-1, num_positions, 20)
+                recon_loss = F.cross_entropy(
+                    recon_reshaped.view(-1, 20),
+                    one_hot_reshaped.argmax(dim=-1).view(-1)
+                )
                 kl_loss = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
                 loss = recon_loss + kl_loss
 
