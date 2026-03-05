@@ -22,7 +22,7 @@ from peptide_pipeline.biologist.base import BaseBiologist
 _DEFAULT_MODEL = "facebook/esm2_t12_35M_UR50D"
 
 
-class ESMBiologist(BaseBiologist):
+class ESMBiologistCos(BaseBiologist):
     """
     Biologist agent that scores candidate peptides by ESM-2 embedding similarity
     to a given reference peptide.
@@ -141,7 +141,7 @@ class ESMBiologist(BaseBiologist):
 
     def __repr__(self) -> str:
         return (
-            f"ESMBiologist("
+            f"ESMBiologistCos("
             f"model='{self.model_name}', "
             f"device='{self.device}', "
             f"reference='{self.reference_peptide[:20]}...'"
