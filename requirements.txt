@@ -1,3 +1,6 @@
 aiohttp
 requests
 pandas
+ipykernel
+torch
+transformers

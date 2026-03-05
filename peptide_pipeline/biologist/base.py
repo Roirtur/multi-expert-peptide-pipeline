@@ -30,3 +30,23 @@ class BaseBiologist(ABC):
         Provides comprehensive biological analysis for a batch of peptides.
         """
         raise NotImplementedError("Subclasses must implement analyze_peptides method.")
+
+    def evaluate_peptides(self, peptides: List[str], target_description: str) -> List[Dict[str, Any]]:
+        """
+        Performs a full evaluation (activity, risks, analysis) in a single pass.
+        Returns a list of dictionaries containing keys: 'sequence', 'activity_score', 'risks', 'analysis'.
+        Default implementation calls the individual methods, but subclasses should override for efficiency.
+        """
+        activities = self.predict_activity(peptides, target_description)
+        risks = self.assess_risks(peptides)
+        analyses = self.analyze_peptides(peptides)
+        
+        results = []
+        for i, peptide in enumerate(peptides):
+            results.append({
+                "sequence": peptide,
+                "activity_score": activities[i] if i < len(activities) else 0.0,
+                "risks": risks[i] if i < len(risks) else {},
+                "analysis": analyses[i] if i < len(analyses) else {}
+            })
+        return results
