@@ -1,7 +1,7 @@
 from typing import List, Dict, Any
 
 from peptide_pipeline.generator.base import BaseGenerator
-from peptide_pipeline.chemist.BaseChemist import BaseChemist
+from peptide_pipeline.chemist.base import BaseChemist
 from peptide_pipeline.biologist.base import BaseBiologist
 
 class BaseOrchestrator:

@@ -1,6 +1,6 @@
-from peptide_pipeline.chemist import BaseChemist 
+from peptide_pipeline.chemist.base import BaseChemist 
 from typing import List, Dict, Any
-from logger.logger import get_logger
+from peptide_pipeline.logger.logger import get_logger
 import peptides as pp
 from rdkit import Chem
 from rdkit.Chem import Descriptors
@@ -8,60 +8,98 @@ from rdkit.Chem import Descriptors
 class ChemistAgent(BaseChemist):
     def __init__(self):
         super().__init__()
-        # On initialise un logger spécifique à cet agent
         self.logger = get_logger("ChemistAgent")
 
     def check_validity(self, peptides: List[str]) -> List[bool]:
         """
-        Check if peptide sequence is empty or contains abnormal amino-acids.
+        Check if peptide sequence is valid.
         Returns a list of booleans (True if valid, False otherwise).
         """
         basics_aa = {'A','C','D','E','F','G','H','I','K','L','M','N','P','Q','R','S','T','V','W','Y'}
         results = []
-        
+
+        MIN_LENGTH = 2
+        MAX_LENGTH = 10
+
         if not peptides:
             self.logger.error("Invalid format: Empty peptide list provided")
             return []
 
-        for seq in peptides:
+        for id, seq in enumerate(peptides):
+
+            #empty sequence
             if not seq:
-                self.logger.warning("Invalid peptide: Empty sequence found")
+                self.logger.warning(f"Sequence ID {id} : Invalid peptide: Empty sequence found")
+                results.append(False)
+                continue
+            
+            #check length
+            if len(seq) < MIN_LENGTH or len(seq) > MAX_LENGTH:
+                self.logger.warning(f"Sequence ID {id} : Bad sequence size for {seq}")
+                results.append(False)
+                continue
+            
+            #only contains basics amino-acids (convert in caps first)
+            upper_seq = seq.upper()
+            if not all(char in basics_aa for char in upper_seq):
+                invalid_chars = set(upper_seq) - basics_aa
+                self.logger.warning(f"Sequence ID {id} : Invalid peptide '{seq}': contains invalid amino-acids {invalid_chars}")
                 results.append(False)
                 continue
 
+            #check constructible and molecule Sanitization from sequence
+
+            mol = Chem.MolFromSequence(seq)
             
-            upper_seq = seq.upper()
-            if all(char in basics_aa for char in upper_seq):
-                self.logger.debug(f"Valid peptide sequence: {seq}")
-                results.append(True)
-            else:
-                invalid_chars = set(upper_seq) - basics_aa
-                self.logger.warning(f"Invalid peptide '{seq}': contains invalid amino-acids {invalid_chars}")
+            if mol is None:
+                self.logger.warning(f"Sequence ID {id} : Peptide not constructible from sequence {seq}")
                 results.append(False)
+                continue
+
+            try:
+                Chem.SanitizeMol(mol)
+            except Exception as e:
+                self.logger.warning(f"Sequence ID {id} : Sanitization Failed,  Chemical physics violation for '{seq}': {e}")
+                results.append(False)
+                continue
+
+            results.append(True)
         
         valid_count = sum(results)
         self.logger.info(f"Validity check complete: {valid_count}/{len(peptides)} valid peptides")    
         return results
 
     def calculate_properties(self, peptides_list: List[str]) -> List[Dict[str, float]]:
-
         """
-        Calculates physicochemical properties for a list of peptides:
+        Calculates physicochemical properties for a list of short peptides.
         """
-
         props_list = []
 
         for seq in peptides_list:
-
+            print(seq)
             try:
                 pep = pp.Peptide(seq)
+                mol = Chem.MolFromSequence(seq)
+                
+                if mol is None:
+                    raise ValueError("RDKit could not build the molecule.")
+
                 props = {
-                    "size" :  len(seq),
-                    "molecular_weight" : pep.molecular_weight(),
-                    "net_charge" : pep.charge(pH = 5.5), #physiological ph might change later
-                    "hydrophobicite" : pep.hydrophobicity(),
-                    #get logp with rdkit
-                    "logp" : Descriptors.MolLogP(Chem.MolFromSequence(seq)),
+                    "size": len(seq),
+                    "molecular_weight": pep.molecular_weight(),
+                    
+            
+                    "net_charge_pH5_5": pep.charge(pH=5.5), 
+                    "isoelectric_point": pep.isoelectric_point(),
+                    
+                    "hydrophobicity": pep.hydrophobicity(),
+                    "logp": Descriptors.MolLogP(mol),
+                    
+                    "boman_index": pep.boman(),
+                    
+                    "h_bond_donors": Descriptors.NumHDonors(mol),
+                    "h_bond_acceptors": Descriptors.NumHAcceptors(mol),
+                    "tpsa": Descriptors.TPSA(mol) 
                 }
                 props_list.append(props)
 
