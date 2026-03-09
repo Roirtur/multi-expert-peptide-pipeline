@@ -28,3 +28,10 @@ class Generator:
 class Orchestrator:
     def run_pipeline(self):
         return "Pipeline execution finished"
+    
+    def run(self, orchestrator_class, iterations=10, population_size=100, top_k=10):
+        return f"Running {orchestrator_class.__name__} with iterations={iterations}, population_size={population_size}, top_k={top_k}"
+    
+class Chemist:
+    def analyze(self, peptides):
+        return f"Chemist analyzed {len(peptides)} peptides"
