@@ -1,6 +1,6 @@
 from peptide_pipeline.chemist.base import BaseChemist 
 from typing import List, Dict, Any
-from peptide_pipeline.logger.logger import get_logger
+from logger import get_logger
 import peptides as pp
 from rdkit import Chem
 from rdkit.Chem import Descriptors
