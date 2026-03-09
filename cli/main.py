@@ -5,7 +5,7 @@ from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 from rich.panel import Panel
 
-from dummy import models, model_name_from_path, Biologist, DataLoader, Generator, Orchestrator
+from dummy import Biologist, DataLoader, Generator, Orchestrator, Chemist
 
 console = Console()
 
@@ -67,9 +67,11 @@ def generate_peptides(params):
     console.print(table)
 
 @cli.command()
+@click.option('')
+@click.option('--verbose', is_flag=True, help='Run the full Orchestrator pipeline')
 def orchestrate():
     """Run the full Orchestrator pipeline"""
-    orch = Orchestrator()
+    orch = Orchestrator(Generator(), Chemist(), Biologist())
     steps = ["Initializing", "Loading Data", "Biologist Analysis", "Sequence Generation", "Finalizing"]
     
     with Progress(
@@ -87,50 +89,8 @@ def orchestrate():
                 progress.update(step_task, advance=10)
             progress.remove_task(step_task)
             progress.update(overall_task, advance=1)
-            
-    orch.run_pipeline()
+    orch.run(iterations=5, population_size=50, top_k=5)
     console.print(Panel(f"[bold green]Full Pipeline Complete[/bold green]", title="Orchestrator Final Status"))
-
-@cli.command()
-@click.option('--log', default='INFO', help='Logging level')
-@click.option('--data', required=True, prompt='Dataset file path:', help='Dataset file path')
-@click.option('--save', required=True, prompt='Output model path:', help='Output model path')
-@click.option('--model', required=True, prompt=f'Model type ({", ".join(m.name for m in models)}):', help='Model name')
-@click.option('-batch', default=32, help='Batch size')
-@click.option('--epochs', default=10, help='Number of epochs')
-@click.option('--lr', default=0.001, help='Learning rate')
-def train(log, data, save, model, batch, epochs, lr):
-    """Train a model"""
-    console.print(f"[bold]Training with following parameters:[/bold]")
-    table = Table()
-    table.add_column("Parameter")
-    table.add_column("Value")
-    table.add_row("Log", log)
-    table.add_row("Data", data)
-    table.add_row("Save", save)
-    table.add_row("Model", model)
-    table.add_row("Batch", str(batch))
-    table.add_row("Epochs", str(epochs))
-    table.add_row("LR", str(lr))
-    console.print(table)
-
-@cli.command()
-@click.argument('model')
-@click.option('--log', default='INFO', help='Logging level')
-@click.option('-json_params', default=None, help='Path to JSON file with model parameters')
-@click.option('--top_k', default=5, help='Number of top predictions to return')
-@click.option('-size', default=8, help='Size of the sequence to predict')
-def run(model, log, json_params, top_k, size):
-    """Run model prediction"""
-    console.print(f"[bold green]Running model: {model_name_from_path(model)}[/bold green]")
-    table = Table()
-    table.add_column("Parameter")
-    table.add_column("Value")
-    table.add_row("Log Level", log)
-    table.add_row("JSON Params", str(json_params))
-    table.add_row("Top K", str(top_k))
-    table.add_row("Size", str(size))
-    console.print(table)
 
 @cli.command()
 def tui():
