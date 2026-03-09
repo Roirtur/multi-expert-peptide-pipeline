@@ -1,6 +1,8 @@
 aiohttp
 requests
 pandas
+peptides
+rdkit
 ipykernel
 torch
 transformers
