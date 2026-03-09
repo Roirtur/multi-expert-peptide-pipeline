@@ -34,8 +34,9 @@ class DataLoader(BaseDataLoader):
             if 'SEQUENCE' not in self.data.columns or 'NAME' not in self.data.columns:
                 logger.error("CSV file must contain 'SEQUENCE' and 'NAME' columns.")
                 raise ValueError("CSV file must contain 'SEQUENCE' and 'NAME' columns.")
-            
+            logger.info(f"Data loaded successfully from {source}. Total records: {len(self.data)}")
             if columns is None:
+                logger.info("No columns specified, defaulting to ['NAME', 'SEQUENCE']")
                 columns = ['NAME', 'SEQUENCE']
             
             missing = [col for col in columns if col not in self.data.columns]
