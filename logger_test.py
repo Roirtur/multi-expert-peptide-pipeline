@@ -1,4 +1,4 @@
-import logger.logger as logger_module
+import logger._logger as logger_module
 
 def main():
     logger = logger_module.get_logger(level=logger_module.logging.DEBUG)
