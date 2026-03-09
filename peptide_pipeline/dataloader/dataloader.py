@@ -22,6 +22,7 @@ class DataLoader(BaseDataLoader):
     def __init__(self):
         super().__init__()
         self.data = None
+        logger.info("DataLoader initialized.")
 
     def load_data(self, source: str, columns: Optional[List[str]] = None, **kwargs) -> None:
         """
@@ -56,4 +57,5 @@ class DataLoader(BaseDataLoader):
         if self.data is None:
             logger.error("Data not loaded. Call load_data() first.")
             sys.exit(1)
+        logger.info("Data retrieval successful.")
         return self.data
