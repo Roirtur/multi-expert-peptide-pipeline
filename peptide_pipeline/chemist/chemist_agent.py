@@ -76,7 +76,6 @@ class ChemistAgent(BaseChemist):
         props_list = []
 
         for seq in peptides_list:
-            print(seq)
             try:
                 pep = pp.Peptide(seq)
                 mol = Chem.MolFromSequence(seq)
@@ -93,6 +92,7 @@ class ChemistAgent(BaseChemist):
                     "isoelectric_point": pep.isoelectric_point(),
                     
                     "hydrophobicity": pep.hydrophobicity(),
+                    "hydrophobic_moment" : pep.hydrophobic_moment(),
                     "logp": Descriptors.MolLogP(mol),
                     
                     "boman_index": pep.boman(),
