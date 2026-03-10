@@ -1,12 +1,8 @@
-from itertools import count
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 from typing import List, Optional, Dict, Any
-import numpy as np
-from abc import ABC
 from base import BaseGenerator
 
 class VAEGenerator(BaseGenerator):
@@ -127,3 +123,30 @@ class VAEGenerator(BaseGenerator):
                     idx = amino_acids.index(aa)
                     one_hot[i, j * 20 + idx] = 1
         return one_hot
+    
+    def generate_from_seed(self,seed_peptide:str,count:int,exploration: float =0.5,temperature: float = 1.0)->List[str]:
+        self.eval()
+        with torch.no_grad():
+            # Encode the seed peptide
+            seed_tensor = self._peptides_to_one_hot([seed_peptide])  # [1, input_dim]
+            h = self.encoder(seed_tensor)
+            mu, log_var = h.chunk(2, dim=-1)          # [1, latent_dim]
+
+            # Sample around mu with scaled noise
+            eps = torch.randn(count, self.latent_dim, device=self.device)
+            z = mu + eps * exploration           # [count, latent_dim]
+
+            # Decode
+            logits = self.decoder(z)
+            num_positions = self.input_dim // 20
+            logits = logits.view(count, num_positions, 20)
+            probs = F.softmax(logits / temperature, dim=-1)
+            amino_acid_indices = torch.multinomial(
+                probs.view(-1, 20), num_samples=1
+            ).view(count, num_positions).cpu().numpy()
+
+            amino_acids = "ACDEFGHIKLMNPQRSTVWY"
+            peptides = ["".join([amino_acids[idx] for idx in seq]) for seq in amino_acid_indices]
+
+        self.train()
+        return peptides

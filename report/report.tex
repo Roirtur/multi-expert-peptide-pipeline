@@ -1,0 +1,211 @@
+\documentclass[12pt, a4paper]{article}
+
+% --- Packages ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{cite}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue
+}
+
+% --- Metadata ---
+\title{Multi-Expert Agentic Pipeline for \textit{In Silico} Peptide Generation}
+\author{Author Name}
+\date{March 2026}
+
+% ================================================================
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We present a proof-of-concept multi-agent pipeline for the iterative \textit{in silico} design of antimicrobial peptides (AMPs).
+The system orchestrates three specialised agents --- a \textbf{Generator} (VAE-based designer), a \textbf{Chemist} (physicochemical constraint filtering), and a \textbf{Biologist} (ESM-2 embedding scorer) --- in a closed feedback loop.
+Starting from a reference peptide, the pipeline evolves a population of candidates over multiple rounds, retaining top-$K$ sequences at each step.
+We describe the architecture, experimental setup, and evaluation metrics, and compare results against a non-agentic random-generation baseline.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% ================================================================
+\section{Introduction}
+\label{sec:intro}
+Peptide drug discovery is a growing field \ldots
+
+% Motivation, context, and the cost of wet-lab screening.
+% Why in silico generation is attractive.
+% Brief statement of contributions.
+
+% ================================================================
+\section{Background}
+\label{sec:background}
+
+\subsection{Antimicrobial Peptides}
+% Biology of AMPs, lipid-bilayer disruption mechanism, APD3 database.
+
+\subsection{Variational Autoencoders for Sequence Generation}
+% VAE latent-space intuition, reparameterisation trick, KL annealing.
+
+\subsection{Protein Language Models}
+% ESM-2 family (8M -- 15B parameters), mean-pooled embeddings as functional proxies.
+
+% ================================================================
+\section{System Architecture}
+\label{sec:architecture}
+
+\begin{figure}[H]
+    \centering
+    % \includegraphics[width=0.85\textwidth]{figures/pipeline_diagram.pdf}
+    \caption{Overview of the multi-expert agentic pipeline. The Orchestrator drives an iterative loop between the Generator, Chemist, and Biologist agents.}
+    \label{fig:pipeline}
+\end{figure}
+
+\subsection{Orchestrator}
+The \texttt{BaseOrchestrator} runs for at most $T$ iterations over a population of size $N$, applying validity filtering and activity scoring before selecting the top-$K$ candidates for the next round (Algorithm~\ref{alg:pipeline}).
+
+\begin{algorithm}[H]
+\caption{Multi-Expert Peptide Optimisation Loop}
+\label{alg:pipeline}
+\begin{algorithmic}[1]
+\State $P \gets \text{Generator.generate}(N)$
+\For{$i = 1$ to $T$}
+    \State $P_{\text{valid}} \gets \text{Chemist.filter}(P)$
+    \If{$P_{\text{valid}} = \emptyset$} \textbf{break} \EndIf
+    \State $S \gets \text{Biologist.score}(P_{\text{valid}})$
+    \State $B \gets \text{top-}K(P_{\text{valid}}, S)$
+    \State $P \gets B \cup \text{Generator.modify}(B,\, N - K)$
+\EndFor
+\State \Return $B$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Generator Agent (VAE)}
+% Architecture: input\_dim=120, latent\_dim=64, hidden\_dim=256.
+% Encoder/decoder with LayerNorm + ReLU.
+% Temperature sampling for diversity control.
+% KL annealing during training.
+
+\subsection{Chemist Agent}
+% Validity rules: length bounds, net charge, forbidden motifs.
+% \texttt{check\_validity} and \texttt{calculate\_properties} interface.
+
+\subsection{Biologist Agent (ESM-2)}
+% Cosine similarity scoring (ESMBiologistCos) vs.\ Z-score variant.
+% Pre-computed reference embedding for efficiency.
+% Model variants: 35M (default) up to 15B parameters.
+
+% ================================================================
+\section{Dataset}
+\label{sec:dataset}
+
+\begin{table}[H]
+    \centering
+    \caption{Sample of the peptide dataset (\texttt{data/peptides.csv}).}
+    \label{tab:dataset}
+    \begin{tabular}{llll}
+        \toprule
+        \textbf{Name} & \textbf{Sequence} & \textbf{Target Group} & \textbf{Target Object} \\
+        \midrule
+        B-38        & IKQLLHFFQRF              & Gram+, Gram$-$       & Lipid Bilayer \\
+        {[RLLR]5}   & RLLRRLLRRLLRRLLRRLLR     & Gram+, Gram$-$, \ldots & Lipid Bilayer \\
+        Magainin-2  & GIGKFLHSAKKFGKAFVGEIMNS  & Broad spectrum       & Lipid Bilayer \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+% Dataset statistics: size, sequence-length distribution, target-group breakdown.
+
+% ================================================================
+\section{Experimental Setup}
+\label{sec:experiments}
+
+\subsection{Hyperparameters}
+\begin{table}[H]
+    \centering
+    \caption{Pipeline hyperparameters used in all experiments.}
+    \label{tab:hyperparams}
+    \begin{tabular}{ll}
+        \toprule
+        \textbf{Parameter} & \textbf{Value} \\
+        \midrule
+        Iterations ($T$)       & 10 \\
+        Population size ($N$)  & 100 \\
+        Top-$K$                & 10 \\
+        VAE latent dim         & 64 \\
+        VAE hidden dim         & 256 \\
+        Training epochs        & 300 \\
+        Learning rate          & $10^{-3}$ \\
+        ESM-2 model            & \texttt{esm2\_t12\_35M\_UR50D} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Baseline}
+% Describe the non-agentic baseline (e.g.\ random generation, single-pass VAE without feedback).
+
+% ================================================================
+\section{Results}
+\label{sec:results}
+
+\subsection{Validity Rate}
+% Percentage of generated peptides passing Chemist filters per iteration.
+
+\subsection{Activity Score}
+% Mean and max Biologist score (cosine similarity / Z-score) over iterations.
+
+\subsection{Peptide Diversity}
+% Diversity metric (e.g.\ mean pairwise Levenshtein distance) of the top-K set.
+
+\subsection{Comparison with Baseline}
+\begin{table}[H]
+    \centering
+    \caption{Pipeline vs.\ baseline on key metrics (mean $\pm$ std over $n$ runs).}
+    \label{tab:results}
+    \begin{tabular}{lccc}
+        \toprule
+        \textbf{Method} & \textbf{Validity (\%)} & \textbf{Mean Score} & \textbf{Diversity} \\
+        \midrule
+        Baseline (random)   & -- & -- & -- \\
+        Multi-agent pipeline & -- & -- & -- \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Top-K Candidates}
+% Table or figure listing the final best peptides, their scores, and properties.
+
+% ================================================================
+\section{Discussion}
+\label{sec:discussion}
+% Interpretation of results. Limitations: proxy scorer vs. wet-lab validation.
+% Ablation: effect of removing individual agents.
+% Failure modes: population collapse, low validity early on.
+
+% ================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+% Summary of findings, key takeaways, and future directions
+% (e.g. fine-tuned ESM scorer, RL-based generator, wet-lab validation loop).
+
+% ================================================================
+\bibliographystyle{plain}
+\bibliography{references}
+
+\end{document}
