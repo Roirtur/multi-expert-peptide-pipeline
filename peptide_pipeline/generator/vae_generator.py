@@ -130,12 +130,15 @@ class VAEGenerator(BaseGenerator):
             # Encode the seed peptide
             seed_tensor = self._peptides_to_one_hot([seed_peptide])  # [1, input_dim]
             h = self.encoder(seed_tensor)
-            mu, log_var = h.chunk(2, dim=-1)          # [1, latent_dim]
+            mu, log_var = h.chunk(2, dim=-1)          # [1, latent_dim] 
+
 
             # Sample around mu with scaled noise
             eps = torch.randn(count, self.latent_dim, device=self.device)
             z = mu + eps * exploration           # [count, latent_dim]
-
+            # To do true posterior sampling  :
+            # z=μ+ϵ⋅exp(0.5⋅log_var)⋅exploration
+            
             # Decode
             logits = self.decoder(z)
             num_positions = self.input_dim // 20
