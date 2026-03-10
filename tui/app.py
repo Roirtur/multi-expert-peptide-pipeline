@@ -9,7 +9,12 @@ from .widgets.chemist import ChemistWidget
 from .widgets.global_log import GlobalLogWidget
 from .widgets.generator import GeneratorWidget, MODEL_CONFIGS
 from .widgets.orchestrator import OrchestratorWidget
-from dummy import Biologist, Generator, Orchestrator
+from dummy import Biologist, Generator, Chemist
+from peptide_pipeline.orchestrator.base import BaseOrchestrator
+
+from logger import get_logger, set_level
+
+logger = get_logger()
 
 class PeptideApp(App):
     """Modular Textual TUI with dedicated blocks for each expert."""
@@ -78,6 +83,7 @@ class PeptideApp(App):
         return fields
 
     async def _mount_model_fields(self, container, fields):
+        """Dynamically add input fields based on model configuration."""
         for child in list(container.children):
             await child.remove()
 
@@ -152,9 +158,14 @@ class PeptideApp(App):
         model = self._query_in_root(root, "#orch-model", Select).value
         fields = self._get_model_fields(model, include_hyperparameters=True)
         params = self._collect_model_params(root, fields)
-        await self.run_task_execution(
+        
+        progress = self.query_one("#progress-orchestrator", ProgressBar)
+        def progress_cb(val):
+            self.call_from_thread(setattr, progress, "progress", val)
+
+        self.run_task_execution(
             "Orchestrator",
-            lambda: Orchestrator().run_pipeline(),
+            lambda: BaseOrchestrator().run(progress_callback=progress_cb)
         )
 
     @on(Select.Changed, "#gen-model")
@@ -178,12 +189,26 @@ class PeptideApp(App):
     async def on_bio(self):
         seq = self.query_one("#bio-sequence", Input).value
         src = self.query_one("#bio-source-select", Select).value
-        await self.run_task_execution("Biologist", lambda: Biologist().process(f"Seq: {seq}, Src: {src}"))
+        progress = self.query_one("#progress-biologist", ProgressBar)
+        def progress_cb(val):
+            self.call_from_thread(setattr, progress, "progress", val)
+            
+        self.run_task_execution(
+            "Biologist", 
+            lambda: Biologist().process(f"Seq: {seq}, Src: {src}", progress_callback=progress_cb)
+        )
 
     @on(Button.Pressed, "#run-chemist")
     async def on_chem(self):
         seq = self.query_one("#chem-sequence", Input).value
-        await self.run_task_execution("Chemist", lambda: [f"Sequence: {seq}", "Toxicity: PASS", "Solubility: 0.85"])
+        progress = self.query_one("#progress-chemist", ProgressBar)
+        def progress_cb(val):
+            self.call_from_thread(setattr, progress, "progress", val)
+
+        self.run_task_execution(
+            "Chemist", 
+            lambda: Chemist().analyze(seq, progress_callback=progress_cb)
+        )
 
     @on(Button.Pressed, "#run-generator")
     async def on_gen(self, event: Button.Pressed):
@@ -191,9 +216,14 @@ class PeptideApp(App):
         root = self._get_expert_root(origin)
         model = self._query_in_root(root, "#gen-model", Select).value
         params = self._collect_model_params(root, self._get_model_fields(model))
-        await self.run_task_execution(
+        
+        progress = self.query_one("#progress-generator", ProgressBar)
+        def progress_cb(val):
+            self.call_from_thread(setattr, progress, "progress", val)
+
+        self.run_task_execution(
             "Generator",
-            lambda: Generator().generate({"model": model, "params": params}),
+            lambda: Generator().generate({"model": model, "params": params}, progress_callback=progress_cb),
         )
 
     @work(exclusive=True)
@@ -217,26 +247,21 @@ class PeptideApp(App):
             log.write("Verbose mode enabled.")
         global_log.write(f"EXE: {expert_name} started.")
         progress.progress = 0
+        progress.display = True
 
         # Run the (possibly blocking) task in a background thread
-        task = asyncio.create_task(asyncio.to_thread(task_func))
-
-        # Animate progress while the task is running
-        while not task.done():
-            await asyncio.sleep(0.1 if verbose else 0.2)
-            progress.progress = min(progress.progress + 5, 95)
-            if verbose:
-                log.write(f"[verbose] progress ~{int(progress.progress)}%")
-
         try:
-            result = await task
+            result = await asyncio.to_thread(task_func)
         except Exception as exc:
+            progress.display = False
             progress.progress = 0
             log.write(f"ERROR: {exc}")
             global_log.write(f"ERROR: {expert_name} failed: {exc}")
             return
 
         progress.progress = 100
+        await asyncio.sleep(0.5)
+        progress.display = False
         log.write(f"Done! Result: {result}")
         global_log.write(f"SUCCESS: {expert_name} finished.")
 
@@ -248,4 +273,7 @@ class PeptideApp(App):
                 table.add_row(str(idx), str(item))
 
 if __name__ == "__main__":
-    PeptideApp().run()
+    set_level("INFO")
+    logger.info("Starting PeptideApp...")
+    logger.warning("This is a warning before launching the app.")
+    # PeptideApp().run()
