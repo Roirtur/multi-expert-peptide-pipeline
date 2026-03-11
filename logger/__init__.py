@@ -1,1 +1,1 @@
-from ._logger import get_logger, set_level
+from .logger import NOTICE, ColoredFormatter, configure_logging

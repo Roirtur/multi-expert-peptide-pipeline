@@ -1,10 +1,14 @@
+import logging  
 from typing import List, Dict, Any
 
 from peptide_pipeline.generator.base import BaseGenerator
 from peptide_pipeline.chemist.base import BaseChemist
 from peptide_pipeline.biologist.base import BaseBiologist
 
+
 class BaseOrchestrator:
+    logger = logging.getLogger("peptide_pipeline.orchestrator")
+
     def __init__(self, generator: BaseGenerator, chemist: BaseChemist, biologist: BaseBiologist):
         self.generator = generator
         self.chemist = chemist
@@ -28,7 +32,8 @@ class BaseOrchestrator:
             # 3. Score candidates with Biologist Agent (Batch)
             # Assuming predict_activity returns a list of scores
             scores = self.biologist.predict_activity(valid_population, "target_description")
-            
+            self.logger.info(f"Predicted activities for {len(scores)} peptides.")
+
             scored_population = []
             for peptide, score in zip(valid_population, scores):
                 scored_population.append({"sequence": peptide, "score": score})
@@ -40,7 +45,8 @@ class BaseOrchestrator:
             # 5. Generate new candidates based on best ones
             best_sequences = [c["sequence"] for c in best_candidates]
             new_candidates = self.generator.modify_peptides(best_sequences, feedback={"count": population_size - top_k})
-            
+            self.logger.info(f"Generated {len(new_candidates)} new peptide candidates.")
+
             # Update population (Top-K + New)
             population = best_sequences + new_candidates
 
