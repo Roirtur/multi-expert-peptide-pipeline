@@ -2,19 +2,22 @@ from peptide_pipeline.chemist.base import BaseChemist
 from typing import List, Dict, Any
 import peptides as pp
 from rdkit import Chem
-from rdkit.Chem import Descriptors
+from rdkit.Chem import Descriptors, rdDepictor, SDWriter
 
 class ChemistAgent(BaseChemist):
+    def __init__(self, min_length: int = 2, max_length: int = 10):
+        super().__init__()
+        self.logger = get_logger("ChemistAgent")
+        self.basics_aa = {'A','C','D','E','F','G','H','I','K','L','M','N','P','Q','R','S','T','V','W','Y'}
+        self.MIN_LENGTH = min_length
+        self.MAX_LENGTH = max_length
+
     def check_validity(self, peptides: List[str]) -> List[bool]:
         """
         Check if peptide sequence is valid.
         Returns a list of booleans (True if valid, False otherwise).
         """
-        basics_aa = {'A','C','D','E','F','G','H','I','K','L','M','N','P','Q','R','S','T','V','W','Y'}
         results = []
-
-        MIN_LENGTH = 2
-        MAX_LENGTH = 10
 
         if not peptides:
             self.logger.error("Invalid format: Empty peptide list provided")
@@ -29,15 +32,15 @@ class ChemistAgent(BaseChemist):
                 continue
             
             #check length
-            if len(seq) < MIN_LENGTH or len(seq) > MAX_LENGTH:
+            if len(seq) < self.MIN_LENGTH or len(seq) > self.MAX_LENGTH:
                 self.logger.warning(f"Sequence ID {id} : Bad sequence size for {seq}")
                 results.append(False)
                 continue
             
             #only contains basics amino-acids (convert in caps first)
             upper_seq = seq.upper()
-            if not all(char in basics_aa for char in upper_seq):
-                invalid_chars = set(upper_seq) - basics_aa
+            if not all(char in self.basics_aa for char in upper_seq):
+                invalid_chars = set(upper_seq) - self.basics_aa
                 self.logger.warning(f"Sequence ID {id} : Invalid peptide '{seq}': contains invalid amino-acids {invalid_chars}")
                 results.append(False)
                 continue
@@ -71,7 +74,6 @@ class ChemistAgent(BaseChemist):
         props_list = []
 
         for seq in peptides_list:
-            print(seq)
             try:
                 pep = pp.Peptide(seq)
                 mol = Chem.MolFromSequence(seq)
@@ -88,6 +90,7 @@ class ChemistAgent(BaseChemist):
                     "isoelectric_point": pep.isoelectric_point(),
                     
                     "hydrophobicity": pep.hydrophobicity(),
+                    "hydrophobic_moment" : pep.hydrophobic_moment(),
                     "logp": Descriptors.MolLogP(mol),
                     
                     "boman_index": pep.boman(),
@@ -148,6 +151,25 @@ class ChemistAgent(BaseChemist):
 
             self.logger.info(f"Filtering complete: {len(filtered_peptides)}/{len(peptides)} peptides kept.")
             return filtered_peptides
+    
+    def create_sdf_file(self, peptides: List[str], path: str):
+        """
+        Computes a .sdf file for each peptide in the list
+        .sdf includes 2DCoords and properties computed by the calculate_properties() function
+        """
+        props_list = self.calculate_properties(peptides)
+        with SDWriter(path) as writer:
+            for seq, props in zip(peptides, props_list):
+                mol = Chem.MolFromSequence(seq)
+                if mol is None:
+                    self.logger.warning(f"Peptide not constructible from sequence {seq}")
+                    continue
+                rdDepictor.Compute2DCoords(mol)
+                
+                for key, value in props.items():
+                    mol.SetProp(key, str(value))
+                
+                writer.write(mol)
 
 
 

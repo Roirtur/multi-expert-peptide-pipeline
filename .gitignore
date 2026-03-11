@@ -208,3 +208,6 @@ __marimo__/
 
 Sujet-Akka_Zemmari.pdf
 database/*.json
+
+# peptide representation file
+.sdf
