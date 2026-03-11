@@ -1,15 +1,10 @@
 from peptide_pipeline.chemist.base import BaseChemist 
 from typing import List, Dict, Any
-from logger import get_logger
 import peptides as pp
 from rdkit import Chem
 from rdkit.Chem import Descriptors
 
 class ChemistAgent(BaseChemist):
-    def __init__(self):
-        super().__init__()
-        self.logger = get_logger("ChemistAgent")
-
     def check_validity(self, peptides: List[str]) -> List[bool]:
         """
         Check if peptide sequence is valid.
@@ -108,7 +103,6 @@ class ChemistAgent(BaseChemist):
                 props_list.append({})
         
         return props_list
-
 
     def filter_peptides(self, peptides: List[str], constraints: Dict[str, Any]) -> List[str]:
             """

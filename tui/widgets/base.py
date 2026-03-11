@@ -20,6 +20,7 @@ class ExpertWidget(Static):
             yield Label(f"[bold]{self.expert_name}[/bold]", classes="expert-title")
             with VerticalScroll(id=f"input-container-{self.expert_name.lower()}", classes="input-container"):
                 yield from self.get_input_fields()
+                yield Label("Logging Level:")
                 yield Select([(name, name) for name in LOGGING_LEVELS], prompt="Select Logging Level", id="loglevel", value=LOGGING_LEVELS[2])
             progress = ProgressBar(id=f"progress-{self.expert_name.lower()}", show_percentage=True, show_eta=False)
             progress.display = False

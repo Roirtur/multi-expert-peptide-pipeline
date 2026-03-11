@@ -1,20 +1,29 @@
 import asyncio
+import logging
 from textual.app import App, ComposeResult
 from textual.containers import Vertical
-from textual.widgets import Header, Footer, Button, Select, Input, Log, ProgressBar, TabbedContent, TabPane, DataTable
+from textual.widgets import Header, Footer, Button, Select, Input, Log, ProgressBar, TabbedContent, TabPane, DataTable, Checkbox, Label
 from textual import on, work
-from textual.widgets import Label, Checkbox
 from .widgets.biologist import ( BiologistWidget, VIRUS_BACTERIA_SOURCES )
 from .widgets.chemist import ChemistWidget
 from .widgets.global_log import GlobalLogWidget
 from .widgets.generator import GeneratorWidget, MODEL_CONFIGS
 from .widgets.orchestrator import OrchestratorWidget
-from dummy import Biologist, Generator, Chemist
+from dummy import Biologist, Generator
 from peptide_pipeline.orchestrator.base import BaseOrchestrator
+from peptide_pipeline.chemist import ChemistAgent
 
-from logger import get_logger, set_level
 
-logger = get_logger()
+class TextualLogHandler(logging.Handler):
+    def __init__(self, log_widget: Log):
+        super().__init__()
+        self.log_widget = log_widget
+
+    def emit(self, record):
+        # Format the message
+        log_entry = self.format(record)
+        # Use call_from_thread to ensure thread-safety if the AI runs in a worker
+        self.log_widget.app.call_from_thread(self.log_widget.write, log_entry)
 
 class PeptideApp(App):
     """Modular Textual TUI with dedicated blocks for each expert."""
@@ -199,15 +208,31 @@ class PeptideApp(App):
         )
 
     @on(Button.Pressed, "#run-chemist")
-    async def on_chem(self):
+    async def on_chem(self, event: Button.Pressed):
+        origin = self._get_event_origin(event)
+        root = self._get_expert_root(origin)
+
+        # Retrieve the log level chosen in the form
+        log_level_name = self._query_in_root(root, "#loglevel", Select).value or "INFO"
+
         seq = self.query_one("#chem-sequence", Input).value
-        progress = self.query_one("#progress-chemist", ProgressBar)
-        def progress_cb(val):
-            self.call_from_thread(setattr, progress, "progress", val)
+        log_widget = self.query_one("#log-chemist", Log)
+
+        chem_agent = ChemistAgent()
+
+        for handler in list(chem_agent.logger.handlers):
+            if isinstance(handler, TextualLogHandler) and handler.log_widget is log_widget:
+                chem_agent.logger.removeHandler(handler)
+
+        # Attach the TUI handler so every logger.info/warning/etc. appears in the widget
+        tui_handler = TextualLogHandler(log_widget)
+        tui_handler.setLevel(getattr(logging, log_level_name.upper(), logging.INFO))
+        tui_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+        chem_agent.logger.addHandler(tui_handler)
 
         self.run_task_execution(
-            "Chemist", 
-            lambda: Chemist().analyze(seq, progress_callback=progress_cb)
+            "Chemist",
+            lambda: chem_agent.check_validity([seq]),
         )
 
     @on(Button.Pressed, "#run-generator")
@@ -271,9 +296,3 @@ class PeptideApp(App):
             table.add_columns("Index", "Data")
             for idx, item in enumerate(result, 1):
                 table.add_row(str(idx), str(item))
-
-if __name__ == "__main__":
-    set_level("INFO")
-    logger.info("Starting PeptideApp...")
-    logger.warning("This is a warning before launching the app.")
-    # PeptideApp().run()
