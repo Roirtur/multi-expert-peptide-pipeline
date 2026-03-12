@@ -7,7 +7,6 @@ from rdkit.Chem import Descriptors, rdDepictor, SDWriter
 class ChemistAgent(BaseChemist):
     def __init__(self, min_length: int = 2, max_length: int = 10):
         super().__init__()
-        self.logger = get_logger("ChemistAgent")
         self.basics_aa = {'A','C','D','E','F','G','H','I','K','L','M','N','P','Q','R','S','T','V','W','Y'}
         self.MIN_LENGTH = min_length
         self.MAX_LENGTH = max_length
