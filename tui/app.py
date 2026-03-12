@@ -10,8 +10,7 @@ from .widgets.global_log import GlobalLogWidget
 from .widgets.generator import GeneratorWidget, MODEL_CONFIGS
 from .widgets.orchestrator import OrchestratorWidget
 from dummy import Biologist, Generator
-from peptide_pipeline.orchestrator.base import BaseOrchestrator
-from peptide_pipeline.chemist import ChemistAgent
+
 
 
 class TextualLogHandler(logging.Handler):
@@ -153,6 +152,10 @@ class PeptideApp(App):
                 yield GlobalLogWidget(id="global-log-panel")
         yield Footer()
 
+    def _get_chemist_agent(self):
+        from peptide_pipeline.chemist.chemist_agent import ChemistAgent
+        return ChemistAgent()
+
     @on(Input.Changed, "#bio-source-search")
     def filter_biologist_sources(self, event: Input.Changed):
         search_term = event.value.lower()
@@ -162,6 +165,7 @@ class PeptideApp(App):
 
     @on(Button.Pressed, "#run-orchestrator")
     async def on_orch(self, event: Button.Pressed):
+        from peptide_pipeline.orchestrator.base import BaseOrchestrator
         origin = self._get_event_origin(event)
         root = self._get_expert_root(origin)
         model = self._query_in_root(root, "#orch-model", Select).value
@@ -218,7 +222,7 @@ class PeptideApp(App):
         seq = self.query_one("#chem-sequence", Input).value
         log_widget = self.query_one("#log-chemist", Log)
 
-        chem_agent = ChemistAgent()
+        chem_agent = self._get_chemist_agent()
 
         for handler in list(chem_agent.logger.handlers):
             if isinstance(handler, TextualLogHandler) and handler.log_widget is log_widget:
