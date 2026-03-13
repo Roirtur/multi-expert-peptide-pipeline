@@ -1,164 +1,136 @@
-from peptide_pipeline.chemist.base import BaseChemist 
-from typing import List, Dict, Any
-import peptides as pp
+from typing import Dict, List, Optional, Tuple
+
 from rdkit import Chem
-from rdkit.Chem import Descriptors, rdDepictor, SDWriter
+from rdkit.Chem import SDWriter, rdDepictor
+
+from peptide_pipeline.chemist.base import BaseChemist
+from .config_chemist import ChemistConfig, RangeTarget
+from peptide_pipeline.chemist.properties import CHEMIST_PROPERTIES
 
 class ChemistAgent(BaseChemist):
-    def __init__(self, min_length: int = 2, max_length: int = 10):
+    def __init__(self, config: ChemistConfig):
         super().__init__()
-        self.basics_aa = {'A','C','D','E','F','G','H','I','K','L','M','N','P','Q','R','S','T','V','W','Y'}
-        self.MIN_LENGTH = min_length
-        self.MAX_LENGTH = max_length
+        self.config = config
 
     def check_validity(self, peptides: List[str]) -> List[bool]:
-        """
-        Check if peptide sequence is valid.
-        Returns a list of booleans (True if valid, False otherwise).
-        """
+        """Return a list indicating whether each peptide is within the configured constraints."""
         results = []
-
-        if not peptides:
-            self.logger.error("Invalid format: Empty peptide list provided")
-            return []
-
-        for id, seq in enumerate(peptides):
-
-            #empty sequence
-            if not seq:
-                self.logger.warning(f"Sequence ID {id} : Invalid peptide: Empty sequence found")
-                results.append(False)
-                continue
-            
-            #check length
-            if len(seq) < self.MIN_LENGTH or len(seq) > self.MAX_LENGTH:
-                self.logger.warning(f"Sequence ID {id} : Bad sequence size for {seq}")
-                results.append(False)
-                continue
-            
-            #only contains basics amino-acids (convert in caps first)
-            upper_seq = seq.upper()
-            if not all(char in self.basics_aa for char in upper_seq):
-                invalid_chars = set(upper_seq) - self.basics_aa
-                self.logger.warning(f"Sequence ID {id} : Invalid peptide '{seq}': contains invalid amino-acids {invalid_chars}")
-                results.append(False)
-                continue
-
-            #check constructible and molecule Sanitization from sequence
-
-            mol = Chem.MolFromSequence(seq)
-            
-            if mol is None:
-                self.logger.warning(f"Sequence ID {id} : Peptide not constructible from sequence {seq}")
-                results.append(False)
-                continue
-
-            try:
-                Chem.SanitizeMol(mol)
-            except Exception as e:
-                self.logger.warning(f"Sequence ID {id} : Sanitization Failed,  Chemical physics violation for '{seq}': {e}")
-                results.append(False)
-                continue
-
-            results.append(True)
-        
-        valid_count = sum(results)
-        self.logger.info(f"Validity check complete: {valid_count}/{len(peptides)} valid peptides")    
+        for peptide in peptides:
+            _, in_limits = self.evaluate_peptide(peptide, self.config)
+            results.append(in_limits)
         return results
 
-    def calculate_properties(self, peptides_list: List[str]) -> List[Dict[str, float]]:
+    def calculate_score(self, value: float, range_target: RangeTarget) -> Tuple[float, bool]:
         """
-        Calculates physicochemical properties for a list of short peptides.
+        Calculate a score based on the distance from the target value and the limits.
+        The score is higher when the value is closer to the target and decreases as it moves away from the target, especially beyond the limits.
         """
-        props_list = []
-
-        for seq in peptides_list:
-            try:
-                pep = pp.Peptide(seq)
-                mol = Chem.MolFromSequence(seq)
-                
-                if mol is None:
-                    raise ValueError("RDKit could not build the molecule.")
-
-                props = {
-                    "size": len(seq),
-                    "molecular_weight": pep.molecular_weight(),
-                    
+        in_limit = True
+        if value < range_target.min or value > range_target.max:
+            in_limit = False
             
-                    "net_charge_pH5_5": pep.charge(pH=5.5), 
-                    "isoelectric_point": pep.isoelectric_point(),
-                    
-                    "hydrophobicity": pep.hydrophobicity(),
-                    "hydrophobic_moment" : pep.hydrophobic_moment(),
-                    "logp": Descriptors.MolLogP(mol),
-                    
-                    "boman_index": pep.boman(),
-                    
-                    "h_bond_donors": Descriptors.NumHDonors(mol),
-                    "h_bond_acceptors": Descriptors.NumHAcceptors(mol),
-                    "tpsa": Descriptors.TPSA(mol) 
-                }
-                props_list.append(props)
-
-            except Exception as e:
-                self.logger.warning(f"Failed to calculate properties for '{seq}': {str(e)}")
-                props_list.append({})
+        score = abs(value - range_target.target)
         
-        return props_list
+        return score, in_limit
 
-    def filter_peptides(self, peptides: List[str], constraints: Dict[str, Any]) -> List[str]:
-            """
-            Filters a list of peptides based on chemical constraints.
-            Example of constraints format:
-            {
-                "size": {"min": 2, "max": 10},
-                "net_charge": {"min": 1.0},
-                "logp": {"max": 5.0}
-            }
-            """
-            if not constraints:
-                self.logger.info("No constraints provided. Returning original list.")
-                return peptides
+    def evaluate_peptide(self, peptide: str, config: Optional[ChemistConfig] = None) -> Tuple[float, bool]:
+        """
+        Evaluates a single peptide against the provided chemical constraints and calculates a score for each property.
+        Return the score calculated on the properties with a wheight if provided in the config and if the peptide is within all limits or not.
+        """
 
-            properties_list = self.calculate_properties(peptides)
-            filtered_peptides = []
+        active_config = config or self.config
 
-            for seq, props in zip(peptides, properties_list):
-                if not props:
-                    self.logger.debug(f"Excluded '{seq}': Missing properties.")
-                    continue
+        scores = 0.0
+        in_limits = True
+        for name in ChemistConfig.model_fields:
+            if name == "ph":
+                continue
 
-                is_valid = True
+            param = getattr(active_config, name)
+            if param is None:
+                continue
 
-                for prop_name, limits in constraints.items():
-                    if prop_name not in props:
-                        self.logger.warning(f"Unknown constraint '{prop_name}' ignored.")
-                        continue
+            if name == "net_charge":
+                value = CHEMIST_PROPERTIES[name](peptide, pH=active_config.ph)
+            else:
+                value = CHEMIST_PROPERTIES[name](peptide)
 
-                    value = props[prop_name]
+            score, in_limit = self.calculate_score(value, param)
+            if param.wheight is not None:
+                score *= param.wheight
+            if not in_limit:
+                in_limits = False
+            scores += score
 
-                    if "min" in limits and value < limits["min"]:
-                        is_valid = False
-                        break 
-                    
-                    if "max" in limits and value > limits["max"]:
-                        is_valid = False
-                        break
+        return scores, in_limits
 
-                if is_valid:
-                    filtered_peptides.append(seq)
+    def filter_peptides(
+        self,
+        peptides: List[str],
+        config: Optional[ChemistConfig] = None,
+        threshold: float = 0.5,
+    ) -> List[str]:
+        """
+        Filters a list of peptides based on chemical constraints defined in the ChemistConfig.
+        If too few peptides are returned after filtering, a minimum of x% peptides will be returned based on their score (score is calculated by the target and limit distance).    
+        """
+        active_config = config or self.config
+        peptide_ranking = {}
+        for peptide in peptides:
+            scores, in_limits = self.evaluate_peptide(peptide, active_config)
+            peptide_ranking[peptide] = (scores, in_limits)
+        
+        # First filter peptides that are within limits
+        filtered_peptides = [pep for pep, (scores, in_limits) in peptide_ranking.items() if in_limits]
 
-            self.logger.info(f"Filtering complete: {len(filtered_peptides)}/{len(peptides)} peptides kept.")
-            return filtered_peptides
+        if len(filtered_peptides) < threshold * len(peptides):
+            # If too few peptides are within limits, include those closest to targets first.
+            sorted_peptides = sorted(peptide_ranking.items(), key=lambda item: item[1][0])
+            additional_peptides = [pep for pep, (scores, in_limits) in sorted_peptides if pep not in filtered_peptides]
+            filtered_peptides.extend(additional_peptides[:int(threshold * len(peptides)) - len(filtered_peptides)])
+
+        return filtered_peptides
     
+    def calculate_properties(self, peptide: str, config: Optional[ChemistConfig] = None) -> Dict[str, float]:
+        """
+        Calculates the properties of a peptide based on the provided ChemistConfig.
+        Returns a dictionary with property names as keys and their corresponding values as values.
+        """
+        active_config = config or self.config
+        properties = {}
+        for name in ChemistConfig.model_fields:
+            if name == "ph":
+                continue
+
+            if getattr(active_config, name) is None:
+                continue
+
+            if name == "net_charge":
+                properties[name] = CHEMIST_PROPERTIES[name](peptide, pH=active_config.ph)
+            else:
+                properties[name] = CHEMIST_PROPERTIES[name](peptide)
+        
+        return properties
+
+    def analyze_peptide(self, peptide: str) -> Dict[str, object]:
+        score, in_limits = self.evaluate_peptide(peptide)
+        properties = self.calculate_properties(peptide)
+        return {
+            "sequence": peptide,
+            "in_limits": in_limits,
+            "score": score,
+            "properties": properties,
+        }
+
     def create_sdf_file(self, peptides: List[str], path: str):
         """
         Computes a .sdf file for each peptide in the list
         .sdf includes 2DCoords and properties computed by the calculate_properties() function
         """
-        props_list = self.calculate_properties(peptides)
         with SDWriter(path) as writer:
-            for seq, props in zip(peptides, props_list):
+            for seq in peptides:
+                props = self.calculate_properties(seq)
                 mol = Chem.MolFromSequence(seq)
                 if mol is None:
                     self.logger.warning(f"Peptide not constructible from sequence {seq}")

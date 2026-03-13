@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from textual.widgets import Static, Label, Button, ProgressBar, Log, DataTable, Checkbox, Select
+from textual.widgets import Static, Label, Button, Log, DataTable, Checkbox, Select
 from textual.containers import Vertical, VerticalScroll
 from textual.app import ComposeResult
 
@@ -16,15 +16,16 @@ class ExpertWidget(Static):
         self.expert_name = name
 
     def compose(self) -> ComposeResult:
-        with Vertical(classes="expert-block"):
+        # Make the whole expert panel scrollable on small terminal windows.
+        with VerticalScroll(classes="expert-block"):
             yield Label(f"[bold]{self.expert_name}[/bold]", classes="expert-title")
-            with VerticalScroll(id=f"input-container-{self.expert_name.lower()}", classes="input-container"):
-                yield from self.get_input_fields()
+            with Vertical(id=f"input-container-{self.expert_name.lower()}", classes="input-container"):
+                try:
+                    yield from self.get_input_fields()
+                except Exception as e:
+                    yield Label(f"Error generating fields: {e}", classes="error-label")
                 yield Label("Logging Level:")
                 yield Select([(name, name) for name in LOGGING_LEVELS], prompt="Select Logging Level", id="loglevel", value=LOGGING_LEVELS[2])
-            progress = ProgressBar(id=f"progress-{self.expert_name.lower()}", show_percentage=True, show_eta=False)
-            progress.display = False
-            yield progress
             yield Button("Run Task", variant="primary", id=f"run-{self.expert_name.lower()}")
             yield Log(id=f"log-{self.expert_name.lower()}", classes="expert-log")
             yield DataTable(id=f"table-{self.expert_name.lower()}", classes="expert-table")

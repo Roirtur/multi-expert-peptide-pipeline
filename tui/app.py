@@ -1,29 +1,19 @@
 import asyncio
-import logging
 from textual.app import App, ComposeResult
 from textual.containers import Vertical
-from textual.widgets import Header, Footer, Button, Select, Input, Log, ProgressBar, TabbedContent, TabPane, DataTable, Checkbox, Label
+from textual.widgets import Header, Footer, Button, Select, Input, Log, TabbedContent, TabPane, DataTable, Checkbox
 from textual import on, work
 from .widgets.biologist import ( BiologistWidget, VIRUS_BACTERIA_SOURCES )
 from .widgets.chemist import ChemistWidget
 from .widgets.global_log import GlobalLogWidget
 from .widgets.generator import GeneratorWidget, MODEL_CONFIGS
 from .widgets.orchestrator import OrchestratorWidget
+from .handlers.chemist_form import build_chemist_config_from_raw_inputs, is_range_target
+from .handlers.logging_handler import attach_textual_log_handler
+from .handlers.model_params import collect_model_params, get_model_fields, mount_model_fields
 from dummy import Biologist, Generator
-from peptide_pipeline.orchestrator.base import BaseOrchestrator
 from peptide_pipeline.chemist import ChemistAgent
-
-
-class TextualLogHandler(logging.Handler):
-    def __init__(self, log_widget: Log):
-        super().__init__()
-        self.log_widget = log_widget
-
-    def emit(self, record):
-        # Format the message
-        log_entry = self.format(record)
-        # Use call_from_thread to ensure thread-safety if the AI runs in a worker
-        self.log_widget.app.call_from_thread(self.log_widget.write, log_entry)
+from peptide_pipeline.chemist.config_chemist import ChemistConfig
 
 class PeptideApp(App):
     """Modular Textual TUI with dedicated blocks for each expert."""
@@ -33,6 +23,7 @@ class PeptideApp(App):
             padding: 1;
             margin: 1;
             height: 1fr;
+            overflow-y: auto;
         }
         .expert-title {
             background: $primary;
@@ -42,7 +33,12 @@ class PeptideApp(App):
             margin-bottom: 1;
         }
         .input-container {
-            height: 1fr;
+            height: auto;
+            margin-bottom: 1;
+        }
+        #gen-extra-params,
+        #pipe-gen-extra-params {
+            height: auto;
             margin-bottom: 1;
         }
         .expert-log {
@@ -55,8 +51,13 @@ class PeptideApp(App):
             border: solid $secondary;
             display: none;
         }
-        .chem-checks {
-            height: auto;
+        .range-target-row {
+            layout: horizontal;
+            padding: 1;
+        }
+        .range-target-row Input {
+            width: 1fr;
+            min-width: 10;
         }
         TabPane {
             padding: 1;
@@ -84,59 +85,42 @@ class PeptideApp(App):
             return self.query_one(selector, widget_type)
         return root.query_one(selector, widget_type)
 
-    def _get_model_fields(self, model_name: str, include_hyperparameters: bool = False):
-        cfg = MODEL_CONFIGS.get(model_name, {})
-        fields = list(cfg.get("params", []))
-        if include_hyperparameters:
-            fields.extend(cfg.get("hyperparameters", []))
-        return fields
-
-    async def _mount_model_fields(self, container, fields):
-        """Dynamically add input fields based on model configuration."""
-        for child in list(container.children):
-            await child.remove()
-
-        for field in fields:
-            field_type = field.get("type", "input")
-            if field_type == "input":
-                await container.mount(
-                    Label(field["label"]),
-                    Input(placeholder=field.get("placeholder", ""), id=field["id"]),
-                )
-            elif field_type == "select":
-                await container.mount(
-                    Label(field["label"]),
-                    Select([(option, option) for option in field.get("options", [])], id=field["id"]),
-                )
-            elif field_type == "checkbox":
-                await container.mount(Checkbox(field["label"], id=field["id"]))
-
-    def _coerce_param_value(self, value, spec):
-        coerce = spec.get("coerce")
-        if coerce == "int":
-            return int(value)
-        if coerce == "float":
-            return float(value)
-        return value
-
-    def _collect_model_params(self, root, fields):
-        params = {}
-        for field in fields:
-            widget_id = f"#{field['id']}"
-            field_type = field.get("type", "input")
-            if field_type == "input":
-                widget = self._query_in_root(root, widget_id, Input)
-                value = widget.value or field.get("placeholder", "")
-            elif field_type == "select":
-                widget = self._query_in_root(root, widget_id, Select)
-                value = widget.value
-            elif field_type == "checkbox":
-                widget = self._query_in_root(root, widget_id, Checkbox)
-                value = widget.value
+    def _collect_chemist_raw_inputs(self, root, scalar_prefix: str = "chem-", range_prefix: str = ""):
+        raw_inputs = {}
+        for name, field in ChemistConfig.model_fields.items():
+            if is_range_target(field.annotation):
+                raw_inputs[f"{name}-min"] = self._query_in_root(root, f"#{range_prefix}{name}-min", Input).value
+                raw_inputs[f"{name}-max"] = self._query_in_root(root, f"#{range_prefix}{name}-max", Input).value
+                raw_inputs[f"{name}-target"] = self._query_in_root(root, f"#{range_prefix}{name}-target", Input).value
             else:
-                continue
-            params[field["id"]] = self._coerce_param_value(value, field)
-        return params
+                raw_inputs[f"chem-{name}"] = self._query_in_root(root, f"#{scalar_prefix}{name}", Input).value
+        return raw_inputs
+
+    def _run_decoy_orchestrator(
+        self,
+        generator_agent,
+        chemist_agent,
+        biologist_agent,
+        payload,
+    ):
+        chemist_result = chemist_agent.analyze_peptide(payload["chemist_sequence"])
+        return {
+            "status": "decoy orchestrator complete",
+            "experts": {
+                "generator": type(generator_agent).__name__,
+                "chemist": type(chemist_agent).__name__,
+                "biologist": type(biologist_agent).__name__,
+            },
+            "generator": {
+                "model": payload["generator_model"],
+                "params": payload["generator_params"],
+            },
+            "biologist": {
+                "sequence": payload["biologist_sequence"],
+                "source": payload["biologist_source"],
+            },
+            "chemist": chemist_result,
+        }
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -160,21 +144,63 @@ class PeptideApp(App):
         select = self.query_one("#bio-source-select", Select)
         select.set_options(filtered if filtered else [(s, s) for s in VIRUS_BACTERIA_SOURCES])
 
+    @on(Input.Changed, "#pipe-bio-source-search")
+    def filter_pipeline_biologist_sources(self, event: Input.Changed):
+        origin = self._get_event_origin(event)
+        root = self._get_expert_root(origin)
+        search_term = event.value.lower()
+        filtered = [(s, s) for s in VIRUS_BACTERIA_SOURCES if search_term in s.lower()]
+        select = self._query_in_root(root, "#pipe-bio-source-select", Select)
+        select.set_options(filtered if filtered else [(s, s) for s in VIRUS_BACTERIA_SOURCES])
+
     @on(Button.Pressed, "#run-orchestrator")
     async def on_orch(self, event: Button.Pressed):
         origin = self._get_event_origin(event)
         root = self._get_expert_root(origin)
-        model = self._query_in_root(root, "#orch-model", Select).value
-        fields = self._get_model_fields(model, include_hyperparameters=True)
-        params = self._collect_model_params(root, fields)
-        
-        progress = self.query_one("#progress-orchestrator", ProgressBar)
-        def progress_cb(val):
-            self.call_from_thread(setattr, progress, "progress", val)
+        generator_model = self._query_in_root(root, "#pipe-gen-model", Select).value
+        generator_fields = get_model_fields(MODEL_CONFIGS, generator_model)
+        generator_params = collect_model_params(root, generator_fields, self._query_in_root, id_prefix="pipe-gen-")
+
+        biologist_sequence = self._query_in_root(root, "#pipe-bio-sequence", Input).value
+        biologist_source = self._query_in_root(root, "#pipe-bio-source-select", Select).value
+        chemist_sequence = self._query_in_root(root, "#pipe-chem-sequence", Input).value or biologist_sequence
+
+        log_widget = self._query_in_root(root, "#log-orchestrator", Log)
+        if not chemist_sequence:
+            log_widget.write("ERROR: provide a sequence in Chemist or Biologist section.")
+            return
+
+        try:
+            chemist_raw = self._collect_chemist_raw_inputs(
+                root,
+                scalar_prefix="pipe-chem-",
+                range_prefix="pipe-chem-",
+            )
+            chemist_config = build_chemist_config_from_raw_inputs(chemist_raw)
+        except Exception as exc:
+            log_widget.write(f"ERROR: {exc}")
+            return
+
+        generator_agent = Generator()
+        chemist_agent = ChemistAgent(chemist_config)
+        biologist_agent = Biologist()
+
+        payload = {
+            "generator_model": generator_model,
+            "generator_params": generator_params,
+            "biologist_sequence": biologist_sequence,
+            "biologist_source": biologist_source,
+            "chemist_sequence": chemist_sequence,
+        }
 
         self.run_task_execution(
             "Orchestrator",
-            lambda: BaseOrchestrator().run(progress_callback=progress_cb)
+            lambda: self._run_decoy_orchestrator(
+                generator_agent,
+                chemist_agent,
+                biologist_agent,
+                payload,
+            ),
         )
 
     @on(Select.Changed, "#gen-model")
@@ -182,29 +208,23 @@ class PeptideApp(App):
         origin = self._get_event_origin(event)
         root = self._get_expert_root(origin)
         container = self._query_in_root(root, "#gen-extra-params", Vertical)
-        await self._mount_model_fields(container, self._get_model_fields(event.value))
+        await mount_model_fields(container, get_model_fields(MODEL_CONFIGS, event.value))
 
-    @on(Select.Changed, "#orch-model")
-    async def update_orchestrator_params(self, event: Select.Changed):
+    @on(Select.Changed, "#pipe-gen-model")
+    async def update_pipeline_generator_params(self, event: Select.Changed):
         origin = self._get_event_origin(event)
         root = self._get_expert_root(origin)
-        container = self._query_in_root(root, "#orch-extra-params", Vertical)
-        await self._mount_model_fields(
-            container,
-            self._get_model_fields(event.value, include_hyperparameters=True),
-        )
+        container = self._query_in_root(root, "#pipe-gen-extra-params", Vertical)
+        await mount_model_fields(container, get_model_fields(MODEL_CONFIGS, event.value), id_prefix="pipe-gen-")
 
     @on(Button.Pressed, "#run-biologist")
     async def on_bio(self):
         seq = self.query_one("#bio-sequence", Input).value
         src = self.query_one("#bio-source-select", Select).value
-        progress = self.query_one("#progress-biologist", ProgressBar)
-        def progress_cb(val):
-            self.call_from_thread(setattr, progress, "progress", val)
             
         self.run_task_execution(
             "Biologist", 
-            lambda: Biologist().process(f"Seq: {seq}, Src: {src}", progress_callback=progress_cb)
+            lambda: Biologist().process(f"Seq: {seq}, Src: {src}")
         )
 
     @on(Button.Pressed, "#run-chemist")
@@ -215,24 +235,22 @@ class PeptideApp(App):
         # Retrieve the log level chosen in the form
         log_level_name = self._query_in_root(root, "#loglevel", Select).value or "INFO"
 
-        seq = self.query_one("#chem-sequence", Input).value
-        log_widget = self.query_one("#log-chemist", Log)
+        seq = self._query_in_root(root, "#chem-sequence", Input).value
+        log_widget = self._query_in_root(root, "#log-chemist", Log)
 
-        chem_agent = ChemistAgent()
+        try:
+            raw_inputs = self._collect_chemist_raw_inputs(root)
+            config = build_chemist_config_from_raw_inputs(raw_inputs)
+        except Exception as exc:
+            log_widget.write(f"ERROR: {exc}")
+            return
 
-        for handler in list(chem_agent.logger.handlers):
-            if isinstance(handler, TextualLogHandler) and handler.log_widget is log_widget:
-                chem_agent.logger.removeHandler(handler)
-
-        # Attach the TUI handler so every logger.info/warning/etc. appears in the widget
-        tui_handler = TextualLogHandler(log_widget)
-        tui_handler.setLevel(getattr(logging, log_level_name.upper(), logging.INFO))
-        tui_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
-        chem_agent.logger.addHandler(tui_handler)
+        chem_agent = ChemistAgent(config)
+        attach_textual_log_handler(chem_agent, log_widget, log_level_name)
 
         self.run_task_execution(
             "Chemist",
-            lambda: chem_agent.check_validity([seq]),
+            lambda: chem_agent.analyze_peptide(seq),
         )
 
     @on(Button.Pressed, "#run-generator")
@@ -240,22 +258,17 @@ class PeptideApp(App):
         origin = self._get_event_origin(event)
         root = self._get_expert_root(origin)
         model = self._query_in_root(root, "#gen-model", Select).value
-        params = self._collect_model_params(root, self._get_model_fields(model))
-        
-        progress = self.query_one("#progress-generator", ProgressBar)
-        def progress_cb(val):
-            self.call_from_thread(setattr, progress, "progress", val)
+        params = collect_model_params(root, get_model_fields(MODEL_CONFIGS, model), self._query_in_root)
 
         self.run_task_execution(
             "Generator",
-            lambda: Generator().generate({"model": model, "params": params}, progress_callback=progress_cb),
+            lambda: Generator().generate({"model": model, "params": params}),
         )
 
     @work(exclusive=True)
     async def run_task_execution(self, expert_name: str, task_func):
         name_lower = expert_name.lower()
         log = self.query_one(f"#log-{name_lower}", Log)
-        progress = self.query_one(f"#progress-{name_lower}", ProgressBar)
         table = self.query_one(f"#table-{name_lower}", DataTable)
         global_log = self.query_one("#main-global-log", Log)
         verbose = False
@@ -271,24 +284,26 @@ class PeptideApp(App):
         if verbose:
             log.write("Verbose mode enabled.")
         global_log.write(f"EXE: {expert_name} started.")
-        progress.progress = 0
-        progress.display = True
 
         # Run the (possibly blocking) task in a background thread
         try:
             result = await asyncio.to_thread(task_func)
         except Exception as exc:
-            progress.display = False
-            progress.progress = 0
             log.write(f"ERROR: {exc}")
             global_log.write(f"ERROR: {expert_name} failed: {exc}")
             return
 
-        progress.progress = 100
         await asyncio.sleep(0.5)
-        progress.display = False
         log.write(f"Done! Result: {result}")
         global_log.write(f"SUCCESS: {expert_name} finished.")
+
+        if isinstance(result, dict):
+            table.display = True
+            table.clear(columns=True)
+            table.add_columns("Field", "Value")
+            for key, value in result.items():
+                table.add_row(str(key), str(value))
+            return
 
         if isinstance(result, list):
             table.display = True
