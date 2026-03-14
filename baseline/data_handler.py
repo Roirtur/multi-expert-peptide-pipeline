@@ -50,15 +50,19 @@ class PeptideDataset(Dataset):
             ph = item.get("ph")
             ph = self.default_ph if ph is None else ph
             
+            def safe_get(key, default):
+                val = item.get(key)
+                return default if val is None else val
+            
             cond = [
-                item.get("length", 0),
+                safe_get("length", 0),
                 ph,
-                item.get("molecular_weight", 0.0),
-                item.get("logp", 0.0),
-                item.get("net_charge", 0.0),
-                item.get("isoelectric_point", 0.0),
-                item.get("hydrophobicity", 0.0),
-                item.get("cathionicity", 0)
+                safe_get("molecular_weight", 0.0),
+                safe_get("logp", 0.0),
+                safe_get("net_charge", 0.0),
+                safe_get("isoelectric_point", 0.0),
+                safe_get("hydrophobicity", 0.0),
+                safe_get("cathionicity", 0)
             ]
             self.conditions.append(cond)
             
