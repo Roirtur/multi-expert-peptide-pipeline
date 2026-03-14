@@ -10,7 +10,7 @@ def train_model(dataset_file):
     # --- Hyperparameters ---
     BATCH_SIZE = 32
     MAX_LEN = 12
-    EPOCHS = 100
+    EPOCHS = 300
     LEARNING_RATE = 1e-3
     LATENT_DIM = 32
     
@@ -98,7 +98,7 @@ def generate_sample(model, device):
         
     # 2. Define desired properties (MUST be in the exact order as training!)
     # [length, ph, molecular_weight, logp, net_charge, isoelectric_point, hydrophobicity, cathionicity]
-    desired_properties = np.array([[8, 7.0, 1200.0, 2.5, 3.0, 10.0, -0.5, 3]])
+    desired_properties = np.array([[11, 7, 1567.99, -0.31, 6.0, 14.0, 0.51, 5]])
     
     # 3. Scale the properties
     scaled_properties = scaler.transform(desired_properties)

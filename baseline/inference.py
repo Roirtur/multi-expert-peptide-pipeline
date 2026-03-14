@@ -92,5 +92,5 @@ def generate_peptides(model_path='cvae_peptide_model.pth', scaler_path='scaler.p
 if __name__ == "__main__":
     # Example usage with custom properties:
     # [length, ph, MW, logp, net_charge, isoelectric_point, hydrophobicity, cathionicity]
-    custom_props = [11, 7, 1475.81, -1.80, 3.0, 14.0, -0.17, 3]
+    custom_props = [11, 7, 1567.99, -0.31, 6.0, 14.0, 0.51, 5]
     generate_peptides(properties=custom_props)
