@@ -98,7 +98,7 @@ def generate_sample(model, device):
         
     # 2. Define desired properties (MUST be in the exact order as training!)
     # [length, ph, molecular_weight, logp, net_charge, isoelectric_point, hydrophobicity, cathionicity]
-    desired_properties = np.array([[10, 7.0, 1200.0, 2.5, 3.0, 10.0, -0.5, 3]])
+    desired_properties = np.array([[8, 7.0, 1200.0, 2.5, 3.0, 10.0, -0.5, 3]])
     
     # 3. Scale the properties
     scaled_properties = scaler.transform(desired_properties)
