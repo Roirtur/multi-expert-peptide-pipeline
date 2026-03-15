@@ -1,5 +1,4 @@
-import json
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import torch
 import numpy as np
@@ -19,43 +18,51 @@ AA_TO_IDX = {aa: idx for idx, aa in enumerate(VOCAB)}
 IDX_TO_AA = {idx: aa for idx, aa in enumerate(VOCAB)}
 
 CONDITION_DEFAULTS = {
-    "length": 0,
+    "length": 10,
     "ph": 7.0,
-    "molecular_weight": 0.0,
-    "logp": 0.0,
-    "net_charge": 0.0,
-    "isoelectric_point": 0.0,
-    "hydrophobicity": 0.0,
-    "cathionicity": 0,
+    "molecular_weight": 1500.0,
+    "logp": -0.2,
+    "net_charge": 5.0,
+    "isoelectric_point": 10.0,
+    "hydrophobicity": 1.0,
+    "cathionicity": 5,
 }
 
 class PeptideDataset(Dataset):
-    def __init__(self, json_file, max_len=12, default_ph=7.0, scaler_path='scaler.pkl', is_train=True):
+    def __init__(
+        self,
+        records: List[Dict[str, Any]],
+        max_len: int = 12,
+        scaler_path: str = 'scaler.pkl',
+        is_train: bool = True,
+        scaler: Optional[StandardScaler] = None,
+    ):
         """
         Args:
-            json_file (str): Path to the dataset.json file.
+            records (List[Dict[str, Any]]): In-memory peptide records.
             max_len (int): Maximum length of the peptide sequence (default 12).
-            default_ph (float): Value to replace null pH values with.
             scaler_path (str): Path to save/load the StandardScaler.
             is_train (bool): If True, fits the scaler. If False, loads the scaler.
+            scaler (StandardScaler): Optional pre-fitted scaler to reuse.
         """
         self.max_len = max_len
-        self.default_ph = default_ph
         self.scaler_path = scaler_path
         self.is_train = is_train
-        self.scaler = StandardScaler()
-        
-        with open(json_file, 'r') as f:
-            raw_data = json.load(f)
+        self.scaler = scaler if scaler is not None else StandardScaler()
+        if not records:
+            raise ValueError("records cannot be empty.")
             
         self.sequences: List[str] = []
         self.conditions: List[List[float]] = []
         
-        # Extract data and handle missing values
-        for item in raw_data:
+        # handle missing values
+        for item in records:
             seq = str(item.get("sequence", "")).upper()
             if len(seq) > self.max_len:
-                continue # Skip sequences longer than the defined max_length
+                raise ValueError(
+                    f"Found sequence longer than max_len={self.max_len}. "
+                    "Filter records before creating PeptideDataset."
+                )
                 
             self.sequences.append(seq)
 
@@ -69,15 +76,15 @@ class PeptideDataset(Dataset):
 
         self.conditions = np.array(self.conditions, dtype=np.float32)
         
-        # Scale the conditions
         if self.is_train:
             self.conditions = self.scaler.fit_transform(self.conditions)
-            # Save the scaler so we can use the exact same one for generation later
             with open(self.scaler_path, 'wb') as f:
                 pickle.dump(self.scaler, f)
             print(f"Scaler saved to {self.scaler_path}")
         else:
-            if os.path.exists(self.scaler_path):
+            if scaler is not None:
+                self.conditions = self.scaler.transform(self.conditions)
+            elif os.path.exists(self.scaler_path):
                 with open(self.scaler_path, 'rb') as f:
                     self.scaler = pickle.load(f)
                 self.conditions = self.scaler.transform(self.conditions)
@@ -110,7 +117,7 @@ class PeptideDataset(Dataset):
         # Add <EOS>
         encoded.append(AA_TO_IDX['<EOS>'])
         
-        # Pad to max length: max_len + 2 (for SOS and EOS)
+        # max_len + 2 (for SOS and EOS)
         target_len = self.max_len + 2
         padding_length = target_len - len(encoded)
         encoded.extend([AA_TO_IDX['<PAD>']] * padding_length)
@@ -123,11 +130,24 @@ class PeptideDataset(Dataset):
         
         return seq_tensor, cond_tensor
 
-def get_dataloader(json_file, batch_size=32, max_len=12, is_train=True, shuffle=True):
+def get_dataloader(
+    records,
+    batch_size=32,
+    max_len=12,
+    is_train=True,
+    shuffle=True,
+    scaler_path='scaler.pkl',
+    scaler=None,
+):
     """Helper function to create a ready-to-use dataloader."""
-    dataset = PeptideDataset(json_file=json_file, max_len=max_len, is_train=is_train)
+    dataset = PeptideDataset(
+        records=records,
+        max_len=max_len,
+        is_train=is_train,
+        scaler_path=scaler_path,
+        scaler=scaler,
+    )
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=False)
-    # Also return VOCAB size and condition size for the model architecture
     vocab_size = len(VOCAB)
     condition_dim = dataset.conditions.shape[1]
     

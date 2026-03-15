@@ -14,11 +14,9 @@ def generate_peptides(
     temperature=1.0,
     top_k=5,
 ):
-    # 1. Device configuration
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
 
-    # 2. Validate required objects
     if model is None:
         print("Error: A trained PeptideCVAE model instance is required.")
         return
@@ -27,19 +25,15 @@ def generate_peptides(
         print("Error: A fitted scaler instance is required.")
         return
 
-    # Move provided model to the selected device
     model = model.to(device)
 
-    # Basic compatibility check with expected sklearn StandardScaler-like objects
     if not hasattr(scaler, "transform"):
         print("Error: Provided scaler must implement a transform(...) method.")
         return
 
-    # 3. Ensure model is ready for generation
     model.eval()
     print("Model loaded successfully.")
-
-    # 4. Define desired properties for generation
+    
     desired_properties = np.array([properties])
     
     print("\nTarget Properties:")
@@ -52,13 +46,12 @@ def generate_peptides(
     print(f"- Hydrophobicity: {desired_properties[0][6]}")
     print(f"- Cathionicity: {desired_properties[0][7]}")
     
-    # 5. Scale the properties to match the training distributions
+    # scale the properties to match the training distributions
     scaled_properties = scaler.transform(desired_properties)
     condition_tensor = torch.tensor(scaled_properties, dtype=torch.float32).to(device)
 
     print(f"\n--- Generating {num_samples} novel peptide(s) ---")
     
-    # 6. Generate sequence integers
     with torch.no_grad():
         generated_integers = model.generate(
             condition_tensor,
@@ -67,7 +60,7 @@ def generate_peptides(
             top_k=top_k,
         )
 
-    # 7. Decode integers back to Amino Acid characters
+    # decode back to Amino Acid characters
     outputs = []
 
     for i, seq_tensor in enumerate(generated_integers):
