@@ -72,7 +72,10 @@ class VAEGenerator(BaseGenerator):
         return peptides
 
     def modify_peptides(self, peptides: List[str], feedback: Optional[Any] = None) -> List[str]:
-        return self.generate_peptides(len(peptides))
+        count = len(peptides)
+        if feedback and isinstance(feedback, dict) and "count" in feedback:
+            count = feedback["count"]
+        return self.generate_peptides(count)
 
     def train_model(self, data: torch.Tensor, epochs: int = 300, batch_size: int = 64, lr: float = 1e-3, kl_anneal_epochs: int = 100) -> None:
         self.train()
