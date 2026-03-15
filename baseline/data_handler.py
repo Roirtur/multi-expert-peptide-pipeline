@@ -1,4 +1,6 @@
 import json
+from typing import Any, Dict, List
+
 import torch
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
@@ -16,6 +18,17 @@ VOCAB = SPECIAL_TOKENS + AMINO_ACIDS
 AA_TO_IDX = {aa: idx for idx, aa in enumerate(VOCAB)}
 IDX_TO_AA = {idx: aa for idx, aa in enumerate(VOCAB)}
 
+CONDITION_DEFAULTS = {
+    "length": 0,
+    "ph": 7.0,
+    "molecular_weight": 0.0,
+    "logp": 0.0,
+    "net_charge": 0.0,
+    "isoelectric_point": 0.0,
+    "hydrophobicity": 0.0,
+    "cathionicity": 0,
+}
+
 class PeptideDataset(Dataset):
     def __init__(self, json_file, max_len=12, default_ph=7.0, scaler_path='scaler.pkl', is_train=True):
         """
@@ -30,46 +43,33 @@ class PeptideDataset(Dataset):
         self.default_ph = default_ph
         self.scaler_path = scaler_path
         self.is_train = is_train
+        self.scaler = StandardScaler()
         
-        # Load the JSON data
         with open(json_file, 'r') as f:
             raw_data = json.load(f)
             
-        self.sequences = []
-        self.conditions = []
+        self.sequences: List[str] = []
+        self.conditions: List[List[float]] = []
         
         # Extract data and handle missing values
         for item in raw_data:
-            seq = item.get("sequence", "")
+            seq = str(item.get("sequence", "")).upper()
             if len(seq) > self.max_len:
                 continue # Skip sequences longer than the defined max_length
                 
             self.sequences.append(seq)
-            
-            # Extract conditions in a fixed order
-            ph = item.get("ph")
-            ph = self.default_ph if ph is None else ph
-            
-            def safe_get(key, default):
-                val = item.get(key)
-                return default if val is None else val
-            
-            cond = [
-                safe_get("length", 0),
-                ph,
-                safe_get("molecular_weight", 0.0),
-                safe_get("logp", 0.0),
-                safe_get("net_charge", 0.0),
-                safe_get("isoelectric_point", 0.0),
-                safe_get("hydrophobicity", 0.0),
-                safe_get("cathionicity", 0)
-            ]
+
+            cond = self._extract_conditions(item)
             self.conditions.append(cond)
-            
-        self.conditions = np.array(self.conditions)
+
+        if not self.conditions:
+            raise ValueError(
+                "No valid peptides were loaded. Check max_len and dataset content."
+            )
+
+        self.conditions = np.array(self.conditions, dtype=np.float32)
         
-        # Scale the conditions (crucial for neural networks)
-        self.scaler = StandardScaler()
+        # Scale the conditions
         if self.is_train:
             self.conditions = self.scaler.fit_transform(self.conditions)
             # Save the scaler so we can use the exact same one for generation later
@@ -83,6 +83,17 @@ class PeptideDataset(Dataset):
                 self.conditions = self.scaler.transform(self.conditions)
             else:
                 raise FileNotFoundError(f"Scaler not found at {self.scaler_path}. Train the dataset first.")
+
+    def _extract_conditions(self, item: Dict[str, Any]) -> List[float]:
+        """Extract condition vector in a fixed, model-compatible order."""
+        defaults = dict(CONDITION_DEFAULTS)
+
+        values: List[float] = []
+        for key in CONDITION_DEFAULTS:
+            raw_value = item.get(key)
+            value = defaults[key] if raw_value is None else raw_value
+            values.append(float(value))
+        return values
 
     def __len__(self):
         return len(self.sequences)
