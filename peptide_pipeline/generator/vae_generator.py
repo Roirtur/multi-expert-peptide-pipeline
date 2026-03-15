@@ -1,12 +1,8 @@
-from itertools import count
-
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 from typing import List, Optional, Dict, Any
-from abc import ABC
 from peptide_pipeline.generator.base import BaseGenerator
 
 class VAEGenerator(BaseGenerator):
