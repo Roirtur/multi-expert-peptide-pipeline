@@ -126,7 +126,7 @@ class PeptideDataset(Dataset):
 def get_dataloader(json_file, batch_size=32, max_len=12, is_train=True, shuffle=True):
     """Helper function to create a ready-to-use dataloader."""
     dataset = PeptideDataset(json_file=json_file, max_len=max_len, is_train=is_train)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=True)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=False)
     # Also return VOCAB size and condition size for the model architecture
     vocab_size = len(VOCAB)
     condition_dim = dataset.conditions.shape[1]

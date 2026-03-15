@@ -41,42 +41,63 @@ class Encoder(nn.Module):
         return mu, logvar
 
 class Decoder(nn.Module):
-    def __init__(self, vocab_size, condition_dim, hidden_dim, latent_dim, max_seq_len):
+    def __init__(self, vocab_size, condition_dim, hidden_dim, latent_dim, embedding_dim, max_seq_len, sos_idx=1):
         super(Decoder, self).__init__()
         self.max_seq_len = max_seq_len
+        self.sos_idx = sos_idx
+        self.token_embedding = nn.Embedding(vocab_size, embedding_dim)
         
         # 1. Map the concatenated (z + conditions) back to a hidden state for the GRU
         self.fc_hidden = nn.Linear(latent_dim + condition_dim, hidden_dim)
         
-        # 2. GRU to generate the sequence. 
-        # We'll feed the (z + conditions) vector at every time step to keep it strongly conditioned.
-        self.gru = nn.GRU(latent_dim + condition_dim, hidden_dim, batch_first=True)
+        # 2. GRU to generate sequence tokens.
+        # We feed token embeddings plus conditioning context at each step.
+        self.gru = nn.GRU(embedding_dim + latent_dim + condition_dim, hidden_dim, batch_first=True)
         
         # 3. Final layer to map GRU output to vocabulary probabilities
         self.fc_out = nn.Linear(hidden_dim, vocab_size)
 
-    def forward(self, z, c):
+    def init_state(self, z, c):
+        """Build a fixed conditioning context and initial hidden state."""
+        context = torch.cat((z, c), dim=1)
+        hidden = self.fc_hidden(context).unsqueeze(0)
+        return context, hidden
+
+    def step(self, prev_tokens, context, hidden):
+        """Run one autoregressive decoding step."""
+        token_emb = self.token_embedding(prev_tokens)
+        step_input = torch.cat((token_emb, context), dim=1).unsqueeze(1)
+        gru_out, hidden = self.gru(step_input, hidden)
+        logits = self.fc_out(gru_out.squeeze(1))
+        return logits, hidden
+
+    def forward(self, z, c, input_seq=None):
         """
         z: [batch_size, latent_dim] - The sampled latent vector
         c: [batch_size, condition_dim] - The scaled chemical properties
+        input_seq: [batch_size, seq_len] - Optional teacher-forced decoder input tokens
         """
-        # Concatenate latent vector with conditions: [batch_size, latent_dim + condition_dim]
-        concat = torch.cat((z, c), dim=1)
-        
-        # Initialize the GRU hidden state: [1, batch_size, hidden_dim]
-        hidden = self.fc_hidden(concat).unsqueeze(0)
-        
-        # Create a sequence of inputs for the GRU by repeating the concatenated vector
-        # shape: [batch_size, max_seq_len, latent_dim + condition_dim]
-        repeated_input = concat.unsqueeze(1).repeat(1, self.max_seq_len, 1)
-        
-        # Pass through GRU
-        gru_out, _ = self.gru(repeated_input, hidden)
-        
-        # Get vocabulary logits for each step: [batch_size, max_seq_len, vocab_size]
-        out = self.fc_out(gru_out)
-        
-        return out
+        context, hidden = self.init_state(z, c)
+        batch_size = z.size(0)
+        steps = input_seq.size(1) if input_seq is not None else self.max_seq_len
+
+        outputs = []
+        prev_tokens = torch.full(
+            (batch_size,),
+            self.sos_idx,
+            dtype=torch.long,
+            device=z.device,
+        )
+
+        for t in range(steps):
+            if input_seq is not None:
+                prev_tokens = input_seq[:, t]
+            logits, hidden = self.step(prev_tokens, context, hidden)
+            outputs.append(logits.unsqueeze(1))
+            if input_seq is None:
+                prev_tokens = torch.argmax(logits, dim=1)
+
+        return torch.cat(outputs, dim=1)
 
 class PeptideCVAE(nn.Module):
     def __init__(self, vocab_size, condition_dim, max_seq_len=14, embedding_dim=64, hidden_dim=128, latent_dim=32):
@@ -91,9 +112,21 @@ class PeptideCVAE(nn.Module):
         """
         super(PeptideCVAE, self).__init__()
         self.latent_dim = latent_dim
+        self.max_seq_len = max_seq_len
+        self.sos_idx = 1
+        self.eos_idx = 2
+        self.pad_idx = 0
         
         self.encoder = Encoder(vocab_size, embedding_dim, condition_dim, hidden_dim, latent_dim)
-        self.decoder = Decoder(vocab_size, condition_dim, hidden_dim, latent_dim, max_seq_len)
+        self.decoder = Decoder(
+            vocab_size,
+            condition_dim,
+            hidden_dim,
+            latent_dim,
+            embedding_dim,
+            max_seq_len,
+            sos_idx=self.sos_idx,
+        )
 
     def reparameterize(self, mu, logvar):
         """Applies the reparameterization trick to sample z from N(mu, var)."""
@@ -108,12 +141,13 @@ class PeptideCVAE(nn.Module):
         # 2. Sample from the distribution
         z = self.reparameterize(mu, logvar)
         
-        # 3. Decode back into a sequence
-        recon_x = self.decoder(z, c)
+        # 3. Decode back into a sequence using teacher forcing
+        decoder_input = x[:, :-1]
+        recon_x = self.decoder(z, c, input_seq=decoder_input)
         
         return recon_x, mu, logvar
         
-    def generate(self, c, num_samples=1):
+    def generate(self, c, num_samples=1, temperature=1.0, top_k=None):
         """
         Utility method to generate novel peptides purely from chemical conditions.
         c: Tensor of scaled properties [1, condition_dim]
@@ -126,22 +160,43 @@ class PeptideCVAE(nn.Module):
             
             # Sample pure noise from a standard normal distribution
             z = torch.randn(num_samples, self.latent_dim).to(device)
-            
-            # Decode to get logits
-            logits = self.decoder(z, c)
-            
-            # Convert logits to probabilities and pick the highest probability token
-            probs = F.softmax(logits, dim=-1)
-            predicted_sequences = torch.argmax(probs, dim=-1) # [num_samples, max_seq_len]
-            
+
+            context, hidden = self.decoder.init_state(z, c)
+            prev_tokens = torch.full(
+                (num_samples,),
+                self.sos_idx,
+                dtype=torch.long,
+                device=device,
+            )
+
+            generated = []
+            steps = self.max_seq_len - 1
+            temp = max(float(temperature), 1e-5)
+
+            for _ in range(steps):
+                logits, hidden = self.decoder.step(prev_tokens, context, hidden)
+                logits = logits / temp
+
+                if top_k is not None and top_k > 0 and top_k < logits.size(-1):
+                    top_vals, top_idx = torch.topk(logits, top_k, dim=-1)
+                    filtered = torch.full_like(logits, float('-inf'))
+                    filtered.scatter_(1, top_idx, top_vals)
+                    logits = filtered
+
+                probs = F.softmax(logits, dim=-1)
+                next_tokens = torch.multinomial(probs, num_samples=1).squeeze(1)
+                generated.append(next_tokens.unsqueeze(1))
+                prev_tokens = next_tokens
+
+            predicted_sequences = torch.cat(generated, dim=1)
             return predicted_sequences
 
 def cvae_loss_function(recon_x, x, mu, logvar, beta=1.0):
     """
     Computes the loss: Reconstruction Loss (CrossEntropy) + beta * KL Divergence
     
-    recon_x: [batch_size, max_seq_len, vocab_size] (Logits from Decoder)
-    x: [batch_size, max_seq_len] (Target integers)
+    recon_x: [batch_size, target_seq_len, vocab_size] (Logits from Decoder)
+    x: [batch_size, target_seq_len] (Target integers)
     """
     # CrossEntropyLoss expects logits of shape [batch_size, vocab_size, max_seq_len]
     recon_x = recon_x.transpose(1, 2)

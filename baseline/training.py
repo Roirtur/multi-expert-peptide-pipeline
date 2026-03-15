@@ -52,6 +52,7 @@ def train_model(
         total_loss_val = 0
         total_recon_val = 0
         total_kl_val = 0
+        seen_samples = 0
         
         # KL Annealing: Slowly increase beta from 0 to 1 over the first half of training
         # This prevents "posterior collapse" where the model ignores the latent space
@@ -62,20 +63,24 @@ def train_model(
             conditions = conditions.to(device)
             
             recon_x, mu, logvar = model(sequences, conditions)
-            
-            loss, recon_loss, kl_loss = cvae_loss_function(recon_x, sequences, mu, logvar, beta=beta)
+
+            targets = sequences[:, 1:]
+            loss, recon_loss, kl_loss = cvae_loss_function(recon_x, targets, mu, logvar, beta=beta)
             
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+
+            batch_size_curr = sequences.size(0)
+            seen_samples += batch_size_curr
             
             total_loss_val += loss.item()
             total_recon_val += recon_loss.item()
             total_kl_val += kl_loss.item()
             
-        avg_loss = total_loss_val / len(dataloader.dataset)
-        avg_recon = total_recon_val / len(dataloader.dataset)
-        avg_kl = total_kl_val / len(dataloader.dataset)
+        avg_loss = total_loss_val / max(seen_samples, 1)
+        avg_recon = total_recon_val / max(seen_samples, 1)
+        avg_kl = total_kl_val / max(seen_samples, 1)
         
         if (epoch + 1) % 5 == 0 or epoch == 0:
             print(f"Epoch [{epoch+1}/{epochs}] | Beta: {beta:.2f} | "

@@ -6,7 +6,14 @@ from data_handler import IDX_TO_AA
 # Target Features: [length, ph, molecular_weight, logp, net_charge, isoelectric_point, hydrophobicity, cathionicity]
 DEFAULT_TARGET_PROPERTIES = [10, 7.0, 1200.0, 2.5, 3.0, 10.0, -0.5, 3]
 
-def generate_peptides(model, scaler, num_samples=5, properties=DEFAULT_TARGET_PROPERTIES):
+def generate_peptides(
+    model,
+    scaler,
+    num_samples=5,
+    properties=DEFAULT_TARGET_PROPERTIES,
+    temperature=1.0,
+    top_k=5,
+):
     # 1. Device configuration
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
@@ -53,7 +60,12 @@ def generate_peptides(model, scaler, num_samples=5, properties=DEFAULT_TARGET_PR
     
     # 6. Generate sequence integers
     with torch.no_grad():
-        generated_integers = model.generate(condition_tensor, num_samples=num_samples)
+        generated_integers = model.generate(
+            condition_tensor,
+            num_samples=num_samples,
+            temperature=temperature,
+            top_k=top_k,
+        )
 
     # 7. Decode integers back to Amino Acid characters
     outputs = []
