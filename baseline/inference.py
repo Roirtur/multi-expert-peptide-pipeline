@@ -1,57 +1,38 @@
 import torch
 import numpy as np
-import pickle
-import os
 
-from data_handler import IDX_TO_AA, VOCAB
-from model import PeptideCVAE
+from data_handler import IDX_TO_AA
 
-def generate_peptides(model_path='cvae_peptide_model.pth', scaler_path='scaler.pkl', num_samples=5, properties=None):
+# Target Features: [length, ph, molecular_weight, logp, net_charge, isoelectric_point, hydrophobicity, cathionicity]
+DEFAULT_TARGET_PROPERTIES = [10, 7.0, 1200.0, 2.5, 3.0, 10.0, -0.5, 3]
+
+def generate_peptides(model, scaler, num_samples=5, properties=DEFAULT_TARGET_PROPERTIES):
     # 1. Device configuration
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
 
-    # 2. Check if files exist
-    if not os.path.exists(model_path):
-        print(f"Error: Model file '{model_path}' not found. Please train the model first.")
+    # 2. Validate required objects
+    if model is None:
+        print("Error: A trained PeptideCVAE model instance is required.")
         return
 
-    if not os.path.exists(scaler_path):
-        print(f"Error: Scaler file '{scaler_path}' not found. Please train the dataset first to generate the scaler.")
+    if scaler is None:
+        print("Error: A fitted scaler instance is required.")
         return
 
-    # 3. Load the scaler
-    with open(scaler_path, 'rb') as f:
-        scaler = pickle.load(f)
+    # Move provided model to the selected device
+    model = model.to(device)
 
-    # 4. Initialize the model
-    vocab_size = len(VOCAB)
-    condition_dim = scaler.mean_.shape[0]  # Typically 8 properties
-    max_seq_len = 14  # MAX_LEN (12) + 2 (SOS, EOS) from training settings
-    latent_dim = 32   # LATENT_DIM from training settings
-
-    model = PeptideCVAE(
-        vocab_size=vocab_size,
-        condition_dim=condition_dim,
-        max_seq_len=max_seq_len,
-        latent_dim=latent_dim
-    ).to(device)
-
-    # 5. Load model weights
-    try:
-        model.load_state_dict(torch.load(model_path, map_location=device))
-    except Exception as e:
-        print(f"Failed to load model weights: {e}")
+    # Basic compatibility check with expected sklearn StandardScaler-like objects
+    if not hasattr(scaler, "transform"):
+        print("Error: Provided scaler must implement a transform(...) method.")
         return
-        
+
+    # 3. Ensure model is ready for generation
     model.eval()
     print("Model loaded successfully.")
 
-    # 6. Define desired properties for generation
-    # Target Features: [length, ph, molecular_weight, logp, net_charge, isoelectric_point, hydrophobicity, cathionicity]
-    if properties is None:
-        properties = [10, 7.0, 1200.0, 2.5, 3.0, 10.0, -0.5, 3]
-        
+    # 4. Define desired properties for generation
     desired_properties = np.array([properties])
     
     print("\nTarget Properties:")
@@ -64,17 +45,19 @@ def generate_peptides(model_path='cvae_peptide_model.pth', scaler_path='scaler.p
     print(f"- Hydrophobicity: {desired_properties[0][6]}")
     print(f"- Cathionicity: {desired_properties[0][7]}")
     
-    # 7. Scale the properties to match the training distributions
+    # 5. Scale the properties to match the training distributions
     scaled_properties = scaler.transform(desired_properties)
     condition_tensor = torch.tensor(scaled_properties, dtype=torch.float32).to(device)
 
     print(f"\n--- Generating {num_samples} novel peptide(s) ---")
     
-    # 8. Generate sequence integers
+    # 6. Generate sequence integers
     with torch.no_grad():
         generated_integers = model.generate(condition_tensor, num_samples=num_samples)
 
-    # 9. Decode integers back to Amino Acid characters
+    # 7. Decode integers back to Amino Acid characters
+    outputs = []
+
     for i, seq_tensor in enumerate(generated_integers):
         seq_list = seq_tensor.tolist()
         
@@ -86,11 +69,9 @@ def generate_peptides(model_path='cvae_peptide_model.pth', scaler_path='scaler.p
             if token == '<EOS>' or token == '<PAD>': 
                 break
             peptide += token
-            
+        
+        outputs.append(peptide)
         print(f"Sample {i+1}: {peptide}")
 
-if __name__ == "__main__":
-    # Example usage with custom properties:
-    # [length, ph, MW, logp, net_charge, isoelectric_point, hydrophobicity, cathionicity]
-    custom_props = [11, 7, 1567.99, -0.31, 6.0, 14.0, 0.51, 5]
-    generate_peptides(properties=custom_props)
+    return outputs
+
