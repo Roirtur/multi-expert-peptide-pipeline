@@ -36,8 +36,6 @@ class ESMBiologistCos(BaseBiologist):
         hf_token: Optional[str] = None,
         batch_size: int = 32,
     ) -> None:
-        super().__init__()
-
         self.reference_peptide = reference_peptide
         self.model_name = model_name
         self.batch_size = batch_size

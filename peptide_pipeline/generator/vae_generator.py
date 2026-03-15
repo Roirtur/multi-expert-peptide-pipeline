@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 from typing import List, Optional, Dict, Any
+import numpy as np
+from abc import ABC
 from peptide_pipeline.generator.base import BaseGenerator
 
 class VAEGenerator(BaseGenerator):
@@ -12,6 +14,7 @@ class VAEGenerator(BaseGenerator):
         self.input_dim = input_dim
         self.latent_dim = latent_dim
         self.hidden_dim = hidden_dim
+
 
         # Encoder
         self.encoder = nn.Sequential(
