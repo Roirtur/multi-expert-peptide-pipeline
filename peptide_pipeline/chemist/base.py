@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any
+import logging
 
 class BaseChemist(ABC):
     """
@@ -7,8 +8,7 @@ class BaseChemist(ABC):
     Responsible for checking chemical validity and feasibility.
     """
 
-    def __init__(self):
-        pass
+    logger = logging.getLogger("peptide_pipeline.chemist")
 
     @abstractmethod
     def check_validity(self, peptides: List[str]) -> List[bool]:
@@ -27,7 +27,6 @@ class BaseChemist(ABC):
     def filter_peptides(self, peptides: List[str], constraints: Dict[str, Any]) -> List[str]:
         """
         Filters a list of peptides based on chemical constraints.
-        Default implementation iterates using check_validity, but can be overridden.
         """
         raise NotImplementedError("Subclasses must implement filter_peptides method.")
 

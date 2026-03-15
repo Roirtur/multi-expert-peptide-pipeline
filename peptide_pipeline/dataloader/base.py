@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, Optional, Dict
+import logging 
 
 class BaseDataLoader(ABC):
     """
@@ -7,8 +8,7 @@ class BaseDataLoader(ABC):
     Responsible for loading and preprocessing peptide data for training or evaluation.
     """
 
-    def __init__(self):
-        pass
+    logger = logging.getLogger("peptide_pipeline.dataloader")
 
     @abstractmethod
     def load_data(self, source: str, **kwargs) -> Any:

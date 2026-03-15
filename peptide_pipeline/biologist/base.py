@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional
+import logging
 
 
 class BaseBiologist(ABC):
@@ -8,8 +9,8 @@ class BaseBiologist(ABC):
     Responsible for scoring peptide activity and assessing biological properties.
     """
 
-    def __init__(self):
-        pass
+    logger = logging.getLogger("peptide_pipeline.biologist")
+
 
     @abstractmethod
     def score_peptides(self, peptides: List[str]) -> List[float]:
