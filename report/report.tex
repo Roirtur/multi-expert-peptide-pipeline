@@ -1,137 +1,23 @@
 \documentclass[10pt,journal,compsoc]{IEEEtran}
 
-\ifCLASSOPTIONcompsoc
-\usepackage[nocompress]{cite}
-\else
-\usepackage{cite}
-\fi
-
-\usepackage{graphicx}
-\usepackage{multirow}
-\usepackage{booktabs} % Added for nicer tables (useful for result comparisons)
-\usepackage{url}
-
-% FIGURES using tikzpicture
-% TikZ packages for schemas
-\usepackage{tikz}
-\usetikzlibrary{shapes, arrows, positioning}
-
-% Setup for proper character encoding
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-
-\hyphenation{op-tical net-works semi-conduc-tor}
+\input{parts/preamble}
 
 \begin{document}
 
-\title{A Multi-Expert Agentic Pipeline for Peptide Generation}
-
-\author{Fitger~Nathan,~Iliescu~Eduard,~Macdonald~Arthur,~Niels~Roudeau%
-\thanks{Université de Bordeaux, Master 2, 2026.\\
-Akka Zemmari, Enzo Eddebbarh, Johan Samot}}
-
-\IEEEtitleabstractindextext{%
-\begin{abstract}
-TODO: Write a 150-250 word summary of the project. Mention the in silico peptide design context, the multi-agent approach (Designer, Chemistry, Bio agents), and the main outcome (e.g., "Our pipeline demonstrates a measurable gain over a non-agentic baseline in producing valid, high-scoring peptide candidates").
-\end{abstract}
-
-\begin{IEEEkeywords}
-Multi-Agent Systems, Peptide Generation, In Silico Drug Design, , Variational Autoencoder, Conditional Variational Autoencoder, Evolutionary Scale Modeling.
-\end{IEEEkeywords}}
+\input{parts/frontmatter}
 
 \maketitle
 \IEEEdisplaynontitleabstractindextext
 \IEEEpeerreviewmaketitle
 
-\section{Introduction}\label{sec:introduction}
-TODO: Briefly introduce peptides (e.g., antimicrobial peptides) and their applications[cite: 4].
-TODO: Explain the current challenges of in silico design and the iterative loop of generation, constraint application, and scoring[cite: 5].
-TODO: Introduce the goal of the project: an agentic Proof of Concept (PoC) where specialized software agents cooperate[cite: 6].
-TODO: Outline the structure of the paper.
+\input{parts/01_introduction}
+\input{parts/02_context_related_work}
+\input{parts/03_architecture}
+\input{parts/04_setup}
+\input{parts/05_results_analysis}
+\input{parts/06_discussion_future_work}
+\input{parts/07_conclusion}
 
-\section{Context and Related Work}\label{sec:context}
-TODO: Discuss existing methods for peptide generation (traditional machine learning vs. generative AI).
-TODO: Introduce the concept of Agentic Workflows / Multi-Agent LLM systems.
-TODO: Define the scope (AI orchestration focus, no deep biology/chemistry background assumed, solely in silico with proxy scores)[cite: 7, 38, 39].
-
-\section{Multi-Agent System Architecture}\label{sec:architecture}
-TODO: Introduce the global pipeline (3 agents + orchestrator)[cite: 9]. Include a TikZ diagram showing the loop: propose $\rightarrow$ filter $\rightarrow$ score $\rightarrow$ revise.
-
-\subsection{The Orchestrator}\label{subsec:orchestrator}
-TODO: Explain how the orchestrator manages the iterative loop, enforces stopping criteria, and maintains traceability (logs)[cite: 18, 33].
-
-\subsection{AI Designer Agent}\label{subsec:designer}
-TODO: Describe how this agent generates candidates (prompting strategies, templates, mutation/crossover operators)[cite: 15].
-
-\subsection{Chemistry Agent (Constraints)}\label{subsec:chemistry}
-TODO: Detail the formal proxy constraints applied here: length, net charge, hydrophobicity, proxy solubility, and forbidden motifs[cite: 10, 16].
-
-\subsection{Biology Agent (Function \& Risk)}\label{subsec:biology}
-The Biology Agent evaluates the generated candidates and provides the biological signal used by the iterative loop. In our implementation, it is based on Meta/Facebook's Evolutionary Scale Modeling family (ESM-2) \cite{rives2021biological,esmgithub} and can be conditioned by context (for example an existing peptide reference or requested target properties).
-
-At each iteration, the Biology Agent scores the current valid batch and returns values used by the orchestrator to rank candidates and keep the Top-$K$ peptides for the next round. This makes it the core selection component on the biological side of the pipeline.
-
-As a design choice, this score is treated as a relative proxy to guide search, not as a direct experimental measurement. The detailed scoring formulation is reported in Section~\ref{subsec:scoring}.
-
-\section{Experimental Setup}\label{sec:setup}
-TODO: Describe the technical implementation (e.g., framework used, LLM endpoints).
-
-\subsection{Quantitative Scoring System}\label{subsec:scoring}
-
-\subsubsection{Biologist Agent Scoring}
-The objective is to rank a batch of peptides and identify which candidate is closest to the provided context (an existing peptide or requested properties represented as a reference embedding).
-
-The implementation uses ESM-2 embeddings (default: \texttt{facebook/esm2\_t12\_35M\_UR50D}) with attention-mask-aware mean pooling to produce one vector per peptide. We first tested cosine similarity between candidate and reference embeddings. In practice, cosine values were often too similar for short peptides in this protein-wide latent space, which reduced ranking contrast. We therefore switched to Euclidean distance, then normalized batch distances with a Z-score and mapped them to $[0,1]$ with a sigmoid.
-
-The resulting score is used for relative ranking inside each batch and for Top-$K$ selection by the orchestrator. It should be interpreted as a proxy signal to guide the search process, not as an absolute biological activity measurement.
-
-\subsubsection{Chemist Agent Scoring}
-TODO: Describe how chemistry constraints are converted into quantitative signals (e.g., pass/fail constraints, penalties, or partial scores) and how these values are exposed to the orchestrator.
-
-\subsubsection{Orchestrator-Level Scoring and Ranking}
-TODO: Describe how the orchestrator combines outputs from expert agents (Biologist + Chemist), applies weighting or filtering rules, and computes the final ranking used for Top-$K$ selection.
-
-\subsection{Evaluation Metrics}\label{subsec:metrics}
-TODO: Define the metrics you tracked: Validity (\%), Diversity (distances/entropy/n-grams), and Constraint pass rates[cite: 25, 27, 28].
-
-\subsection{Baselines}\label{subsec:baselines}
-TODO: Describe the baseline used for comparison (e.g., random generation, non-agentic heuristics, or a zero-shot LLM without iterations)[cite: 30].
-
-\section{Results and Analysis}\label{sec:results}
-
-\subsection{Overall Performance and Top-K Gain}\label{subsec:topk}
-TODO: Present the final Top-K peptides. 
-TODO: Show the measurable gain in average score and Top-K score compared to the non-agentic baseline[cite: 13, 26, 30]. Use a table.
-
-\subsection{Trajectory of Improvement}\label{subsec:trajectory}
-TODO: Analyze the evolution of the scores across multiple iterative rounds. Include a graph plotting score vs. iteration number[cite: 29].
-
-\subsection{Ablation Studies}\label{subsec:ablations}
-TODO: Present the results of running the pipeline with missing components to prove their worth.
-TODO: Compare the full pipeline vs. "Without Chemistry Agent", vs. "Without Biology Agent", vs. "Without Iteration"[cite: 42].
-
-\section{Discussion \& Future Work}\label{sec:discussion}
-
-\subsection{Future Work: Peptide-Specific Biological Scoring}\label{subsec:future_biologist}
-The main improvement is to replace the current proxy with a model trained (or fine-tuned) specifically on peptides. Ideally, this model should score or classify a peptide conditionally on a target (or target-related context), instead of relying on a general protein-space similarity signal.
-
-The expected benefit is a more accurate and reliable biological signal for ranking candidates in the loop. A peptide-specialized model could also provide richer outputs than a single proxy score, for example clearer estimates of expected activity and additional information about risk or toxicity.
-
-In short, our current biologist agent is a practical baseline for iterative optimization, while a target-conditioned peptide model is the natural next step to improve biological relevance and decision quality.
-
-\section{Conclusion}\label{sec:conclusion}
-TODO: Summarize that the multi-expert agentic pipeline successfully demonstrates iterative improvement in peptide design. 
-TODO: Mention that all code, scripts, and logs are provided in the Git repository[cite: 32, 33].
-
-\begin{thebibliography}{9}
-\bibitem{rives2021biological}
-A.~Rives, J.~Meier, T.~Sercu, S.~Goyal, Z.~Lin, J.~Liu, D.~Guo, M.~Ott, C.~L.~Zitnick, J.~Ma, and R.~Fergus,
-``Biological Structure and Function Emerge from Scaling Unsupervised Learning to 250 Million Protein Sequences,''
-\emph{Proceedings of the National Academy of Sciences}, vol.~118, no.~15, p.~e2016239118, 2021.
-
-\bibitem{esmgithub}
-Facebook Research,
-``ESM: Evolutionary Scale Modeling,'' GitHub repository. [Online]. Available: \url{https://github.com/facebookresearch/esm}
-\end{thebibliography}
+\input{parts/references}
 
 \end{document}

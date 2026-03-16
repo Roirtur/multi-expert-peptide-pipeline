@@ -1,0 +1,18 @@
+\section{Multi-Agent System Architecture}\label{sec:architecture}
+TODO: Introduce the global pipeline (3 agents + orchestrator)[cite: 9]. Include a TikZ diagram showing the loop: propose $\rightarrow$ filter $\rightarrow$ score $\rightarrow$ revise.
+
+\subsection{The Orchestrator}\label{subsec:orchestrator}
+TODO: Explain how the orchestrator manages the iterative loop, enforces stopping criteria, and maintains traceability (logs)[cite: 18, 33].
+
+\subsection{AI Designer Agent}\label{subsec:designer}
+TODO: Describe how this agent generates candidates (prompting strategies, templates, mutation/crossover operators)[cite: 15].
+
+\subsection{Chemistry Agent (Constraints)}\label{subsec:chemistry}
+TODO: Detail the formal proxy constraints applied here: length, net charge, hydrophobicity, proxy solubility, and forbidden motifs[cite: 10, 16].
+
+\subsection{Biology Agent (Function \& Risk)}\label{subsec:biology}
+The Biology Agent evaluates the generated candidates and provides the biological signal used by the iterative loop. In our implementation, it is based on Meta/Facebook's Evolutionary Scale Modeling family (ESM-2) \cite{rives2021biological,esmgithub} and can be conditioned by context (for example an existing peptide reference or requested target properties).
+
+At each iteration, the Biology Agent scores the current valid batch and returns values used by the orchestrator to rank candidates and keep the Top-$K$ peptides for the next round. This makes it the core selection component on the biological side of the pipeline.
+
+As a design choice, this score is treated as a relative proxy to guide search, not as a direct experimental measurement. The detailed scoring formulation is reported in Section~\ref{subsec:scoring}.
