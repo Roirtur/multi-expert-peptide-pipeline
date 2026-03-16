@@ -1,5 +1,9 @@
 \section{Introduction}\label{sec:introduction}
-TODO: Briefly introduce peptides (e.g., antimicrobial peptides) and their applications[cite: 4].
-TODO: Explain the current challenges of in silico design and the iterative loop of generation, constraint application, and scoring[cite: 5].
-TODO: Introduce the goal of the project: an agentic Proof of Concept (PoC) where specialized software agents cooperate[cite: 6].
-TODO: Outline the structure of the paper.
+
+Peptides, and especially antimicrobial peptides (AMPs), are promising candidates for therapeutic, agricultural, and industrial applications \cite{wang2022machine}. Their \textit{in silico} design is typically formulated as an iterative optimization process: generate candidate sequences, apply formal constraints, and evaluate each candidate with proxy scores for activity, toxicity risk, and stability \cite{wang2022machine,veltri2018deep}. While recent machine learning methods have accelerated sequence design, balancing multiple and sometimes conflicting objectives remains difficult in practice.
+
+This project addresses that challenge through an agentic proof of concept in which specialized software agents cooperate in a closed optimization loop. The pipeline includes an AI Designer agent that proposes candidates, a Chemistry Constraints agent that filters feasibility using proxy physicochemical rules, and a Biology Function/Risk agent that critiques expected function and risk. An orchestrator manages the iterative cycle (propose $\rightarrow$ filter $\rightarrow$ score $\rightarrow$ revise), applies stopping criteria, and stores logs for traceability.
+
+The work is centered on AI aspects (modeling, orchestration, reasoning, and quantitative evaluation) and assumes no prior expertise in wet-lab biology or chemistry. Evaluation is explicit and reproducible: we measure validity, average and Top-K score, diversity, pass rates for constraints, and score evolution across rounds, then compare against a non-agentic baseline. This framing allows us to test whether multi-expert coordination provides measurable gains over single-pass generation .
+
+The remainder of this paper is structured as follows: Section \ref{sec:context} provides a brief overview of the project context and related work. Section \ref{sec:architecture} details the architecture of our multi-agent pipeline and the specific roles of the AI, Chemistry, and Biology agents. Section \ref{sec:setup} outlines our experimental setup and quantitative evaluation metrics. Section \ref{sec:results} presents our findings, including baseline comparisons and ablation studies. Finally, Section \ref{sec:conclusion} concludes the report and discusses potential future work.
