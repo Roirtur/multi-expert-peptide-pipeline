@@ -2,7 +2,7 @@ from textual.widgets import Label, Input
 from textual.containers import Horizontal
 from .base import ExpertWidget
 from ..handlers.chemist_form import is_optional, is_range_target
-from peptide_pipeline.chemist.config_chemist import ChemistConfig
+from peptide_pipeline.chemist.agent_v1.config_chemist import ChemistConfig
 
 
 class ChemistWidget(ExpertWidget):

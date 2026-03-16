@@ -3,7 +3,7 @@ from textual.containers import Vertical
 from .base import ExpertWidget, MODEL_CONFIGS
 from .biologist import VIRUS_BACTERIA_SOURCES
 from ..handlers.chemist_form import is_optional, is_range_target
-from peptide_pipeline.chemist.config_chemist import ChemistConfig
+from peptide_pipeline.chemist.agent_v1.config_chemist import ChemistConfig
 
 
 class OrchestratorWidget(ExpertWidget):

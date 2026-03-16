@@ -1,6 +1,6 @@
 from typing import Mapping, Union, get_args, get_origin
 
-from peptide_pipeline.chemist.config_chemist import ChemistConfig, RangeTarget
+from peptide_pipeline.chemist.agent_v1.config_chemist import ChemistConfig, RangeTarget
 
 
 def is_optional(annotation) -> bool:

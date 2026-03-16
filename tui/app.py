@@ -13,7 +13,7 @@ from .handlers.logging_handler import attach_textual_log_handler
 from .handlers.model_params import collect_model_params, get_model_fields, mount_model_fields
 from dummy import Biologist, Generator
 from peptide_pipeline.chemist import ChemistAgent
-from peptide_pipeline.chemist.config_chemist import ChemistConfig
+from peptide_pipeline.chemist.agent_v1.config_chemist import ChemistConfig
 
 class PeptideApp(App):
     """Modular Textual TUI with dedicated blocks for each expert."""

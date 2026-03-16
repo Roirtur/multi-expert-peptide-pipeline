@@ -1,4 +1,4 @@
 from .base import BaseChemist
-from .chemist_agent import ChemistAgent
+from .agent_v1.chemist_agent import ChemistAgent
 
 __all__ = ["BaseChemist", "ChemistAgent"]

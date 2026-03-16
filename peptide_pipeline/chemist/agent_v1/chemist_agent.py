@@ -5,7 +5,7 @@ from rdkit.Chem import SDWriter, rdDepictor
 
 from peptide_pipeline.chemist.base import BaseChemist
 from .config_chemist import ChemistConfig, RangeTarget
-from peptide_pipeline.chemist.properties import CHEMIST_PROPERTIES
+from peptide_pipeline.chemist.agent_v1.properties import CHEMIST_PROPERTIES
 
 class ChemistAgent(BaseChemist):
     def __init__(self, config: ChemistConfig):
