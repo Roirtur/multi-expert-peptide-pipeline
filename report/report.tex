@@ -1,0 +1,108 @@
+\documentclass[10pt,journal,compsoc]{IEEEtran}
+
+\ifCLASSOPTIONcompsoc
+\usepackage[nocompress]{cite}
+\else
+\usepackage{cite}
+\fi
+
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{booktabs} % Added for nicer tables (useful for result comparisons)
+
+% FIGURES using tikzpicture
+% TikZ packages for schemas
+\usepackage{tikz}
+\usetikzlibrary{shapes, arrows, positioning}
+
+% Setup for proper character encoding
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+\hyphenation{op-tical net-works semi-conduc-tor}
+
+\begin{document}
+
+\title{A Multi-Expert Agentic Pipeline for Peptide Generation}
+
+\author{Fitger~Nathan,~Iliescu~Eduard,~Macdonald~Arthur,~Niels~Roudeau%
+\thanks{Université de Bordeaux, Master 2, 2026.\\
+Akka Zemmari, Enzo Eddebbarh, Johan Samot}}
+
+\IEEEtitleabstractindextext{%
+\begin{abstract}
+TODO: Write a 150-250 word summary of the project. Mention the in silico peptide design context, the multi-agent approach (Designer, Chemistry, Bio agents), and the main outcome (e.g., "Our pipeline demonstrates a measurable gain over a non-agentic baseline in producing valid, high-scoring peptide candidates").
+\end{abstract}
+
+\begin{IEEEkeywords}
+Multi-Agent Systems, Peptide Generation, In Silico Drug Design, , Variational Autoencoder, Conditional Variational Autoencoder, Evolutionary Scale Modeling.
+\end{IEEEkeywords}}
+
+\maketitle
+\IEEEdisplaynontitleabstractindextext
+\IEEEpeerreviewmaketitle
+
+\section{Introduction}\label{sec:introduction}
+TODO: Briefly introduce peptides (e.g., antimicrobial peptides) and their applications[cite: 4].
+TODO: Explain the current challenges of in silico design and the iterative loop of generation, constraint application, and scoring[cite: 5].
+TODO: Introduce the goal of the project: an agentic Proof of Concept (PoC) where specialized software agents cooperate[cite: 6].
+TODO: Outline the structure of the paper.
+
+\section{Context and Related Work}\label{sec:context}
+TODO: Discuss existing methods for peptide generation (traditional machine learning vs. generative AI).
+TODO: Introduce the concept of Agentic Workflows / Multi-Agent LLM systems.
+TODO: Define the scope (AI orchestration focus, no deep biology/chemistry background assumed, solely in silico with proxy scores)[cite: 7, 38, 39].
+
+\section{Multi-Agent System Architecture}\label{sec:architecture}
+TODO: Introduce the global pipeline (3 agents + orchestrator)[cite: 9]. Include a TikZ diagram showing the loop: propose $\rightarrow$ filter $\rightarrow$ score $\rightarrow$ revise.
+
+\subsection{The Orchestrator}\label{subsec:orchestrator}
+TODO: Explain how the orchestrator manages the iterative loop, enforces stopping criteria, and maintains traceability (logs)[cite: 18, 33].
+
+\subsection{AI Designer Agent}\label{subsec:designer}
+TODO: Describe how this agent generates candidates (prompting strategies, templates, mutation/crossover operators)[cite: 15].
+
+\subsection{Chemistry Agent (Constraints)}\label{subsec:chemistry}
+TODO: Detail the formal proxy constraints applied here: length, net charge, hydrophobicity, proxy solubility, and forbidden motifs[cite: 10, 16].
+
+\subsection{Biology Agent (Function \& Risk)}\label{subsec:biology}
+TODO: Explain how this agent critiques the candidates, scores the expected activity vs. risks (like proxy toxicity/hemolysis), and suggests improvements back to the Designer[cite: 11, 17].
+
+\section{Experimental Setup}\label{sec:setup}
+TODO: Describe the technical implementation (e.g., framework used, LLM endpoints).
+
+\subsection{Quantitative Scoring System}\label{subsec:scoring}
+TODO: Document the proxy scores used. Did you use a light classic ML model trained on public data, robust heuristics, or ESM embeddings?[cite: 21, 22, 23, 39, 41].
+
+\subsection{Evaluation Metrics}\label{subsec:metrics}
+TODO: Define the metrics you tracked: Validity (\%), Diversity (distances/entropy/n-grams), and Constraint pass rates[cite: 25, 27, 28].
+
+\subsection{Baselines}\label{subsec:baselines}
+TODO: Describe the baseline used for comparison (e.g., random generation, non-agentic heuristics, or a zero-shot LLM without iterations)[cite: 30].
+
+\section{Results and Analysis}\label{sec:results}
+
+\subsection{Overall Performance and Top-K Gain}\label{subsec:topk}
+TODO: Present the final Top-K peptides. 
+TODO: Show the measurable gain in average score and Top-K score compared to the non-agentic baseline[cite: 13, 26, 30]. Use a table.
+
+\subsection{Trajectory of Improvement}\label{subsec:trajectory}
+TODO: Analyze the evolution of the scores across multiple iterative rounds. Include a graph plotting score vs. iteration number[cite: 29].
+
+\subsection{Ablation Studies}\label{subsec:ablations}
+TODO: Present the results of running the pipeline with missing components to prove their worth.
+TODO: Compare the full pipeline vs. "Without Chemistry Agent", vs. "Without Biology Agent", vs. "Without Iteration"[cite: 42].
+
+\section{Discussion \& Future Work}\label{sec:discussion}
+TODO: Discuss the limitations of proxy scoring[cite: 39].
+TODO: (If applicable) Discuss bonus features implemented like Pareto multi-objective optimization (activity vs toxicity vs solubility) or Streamlit UI visualizations[cite: 43]. 
+
+\section{Conclusion}\label{sec:conclusion}
+TODO: Summarize that the multi-expert agentic pipeline successfully demonstrates iterative improvement in peptide design. 
+TODO: Mention that all code, scripts, and logs are provided in the Git repository[cite: 32, 33].
+
+\begin{thebibliography}{9}
+TODO: Add your references here (e.g., papers on peptide ML models, Agentic frameworks, libraries used like ESM if applicable).
+\end{thebibliography}
+
+\end{document}
