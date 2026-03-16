@@ -2,12 +2,15 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
 import torch.nn as nn
 import torch
+import logging
 
 class BaseGenerator(nn.Module, ABC):
     """
     Base class for the Designer Agent (Generator).
     Responsible for proposing candidate peptides.
     """
+
+    logger = logging.getLogger("peptide_pipeline.generator")
 
     def __init__(self):
         super().__init__()

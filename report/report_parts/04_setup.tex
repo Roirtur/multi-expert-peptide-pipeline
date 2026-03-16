@@ -1,0 +1,23 @@
+\section{Experimental Setup}\label{sec:setup}
+TODO: Describe the technical implementation (e.g., framework used, LLM endpoints).
+
+\subsection{Quantitative Scoring System}\label{subsec:scoring}
+
+\subsubsection{Biologist Agent Scoring}
+The objective is to rank a batch of peptides and identify which candidate is closest to the provided context (an existing peptide or requested properties represented as a reference embedding).
+
+The implementation uses ESM-2 embeddings (default: \texttt{facebook/esm2\_t12\_35M\_UR50D}) with attention-mask-aware mean pooling to produce one vector per peptide. We first tested cosine similarity between candidate and reference embeddings. In practice, cosine values were often too similar for short peptides in this protein-wide latent space, which reduced ranking contrast. We therefore switched to Euclidean distance, then normalized batch distances with a Z-score and mapped them to $[0,1]$ with a sigmoid.
+
+The resulting score is used for relative ranking inside each batch and for Top-$K$ selection by the orchestrator. It should be interpreted as a proxy signal to guide the search process, not as an absolute biological activity measurement.
+
+\subsubsection{Chemist Agent Scoring}
+TODO: Describe how chemistry constraints are converted into quantitative signals (e.g., pass/fail constraints, penalties, or partial scores) and how these values are exposed to the orchestrator.
+
+\subsubsection{Orchestrator-Level Scoring and Ranking}
+TODO: Describe how the orchestrator combines outputs from expert agents (Biologist + Chemist), applies weighting or filtering rules, and computes the final ranking used for Top-$K$ selection.
+
+\subsection{Evaluation Metrics}\label{subsec:metrics}
+TODO: Define the metrics you tracked: Validity (\%), Diversity (distances/entropy/n-grams), and Constraint pass rates[cite: 25, 27, 28].
+
+\subsection{Baselines}\label{subsec:baselines}
+TODO: Describe the baseline used for comparison (e.g., random generation, non-agentic heuristics, or a zero-shot LLM without iterations)[cite: 30].

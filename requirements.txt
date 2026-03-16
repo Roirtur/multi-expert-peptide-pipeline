@@ -1,7 +1,10 @@
-aiohttp
-requests
-pandas
-ipykernel
-torch
-transformers
-matplotlib
+aiohttp==3.11.16
+click==8.3.1
+numpy==2.2.6
+pandas==3.0.1
+peptides==0.5.0
+rdkit==2025.9.6
+rich==14.3.3
+textual==8.1.1
+torch==2.7.1+cu118
+transformers==4.57.3

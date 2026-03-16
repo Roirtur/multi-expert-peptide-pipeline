@@ -7,9 +7,11 @@ import torch
 import torch.nn.functional as F
 from transformers import AutoModel, AutoTokenizer
 
+from peptide_pipeline.biologist.base import BaseBiologist
+
 _DEFAULT_MODEL = "facebook/esm2_t12_35M_UR50D"
 
-class ESMBiologistZscore:
+class ESMBiologistZscore(BaseBiologist):
     """
     Biologist agent that scores candidate peptides using Z-score normalized 
     Euclidean distance for maximum contrast in peptide clusters.

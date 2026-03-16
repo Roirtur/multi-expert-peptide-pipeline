@@ -207,4 +207,12 @@ marimo/_lsp/
 __marimo__/
 
 Sujet-Akka_Zemmari.pdf
-*.json
+database/*.json
+
+# peptide representation file
+.sdf
+
+report/*.aux
+report/*.fdb_latexmk
+report/*.fls
+report/*.synctex.gz
