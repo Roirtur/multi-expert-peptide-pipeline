@@ -28,7 +28,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 import numpy as np
 from abc import ABC
 from peptide_pipeline.generator.base import BaseGenerator
@@ -172,27 +172,21 @@ class CVAEGenerator(BaseGenerator):
         return one_hot
 
     def _constraints_to_condition_tensor(
-    self,
-    constraints: Optional[Dict[str, Any]],
-    count: int,
-    device: Optional[torch.device] = None
-) -> torch.Tensor:
+        self,
+        constraints: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]],
+        count: int,
+        device: Optional[torch.device] = None
+    ) -> torch.Tensor:
         """
-        Convert constraints dict into a fixed-size conditioning tensor [count, condition_dim].
+        Convert constraints into a conditioning tensor [count, condition_dim].
 
-        Encoding strategy:
-        - Fixed property order (stable between train/inference)
-        - 2 slots per property: [min, max]
-        - Missing min/max -> 0.0
-        - Scalar value -> both min and max get that scalar
-        - If encoded vector < condition_dim, remaining dims stay 0
-        - If encoded vector > condition_dim, it is truncated
+        Behavior:
+        - Starts from `constraints_default`
+        - Applies user overrides (dict or list-of-dicts)
+        - Missing properties keep default values
         """
         device = device or self.device
         cond = torch.zeros(count, self.condition_dim, dtype=torch.float32, device=device)
-
-        if not constraints:
-            return cond
 
         property_order = [
             "size",
@@ -208,26 +202,53 @@ class CVAEGenerator(BaseGenerator):
             "tpsa",
         ]
 
+        # 1) Normalize input into a dict
+        user_constraints: Dict[str, Any] = {}
+        if isinstance(constraints, dict):
+            user_constraints = constraints
+        elif isinstance(constraints, list):
+            for row in constraints:
+                if not isinstance(row, dict):
+                    continue
+                # row format: {"property": "size", "min": 8, "max": 12} or {"property": "size", "value": 10}
+                if "property" in row:
+                    prop = row.get("property")
+                    if isinstance(prop, str):
+                        if "value" in row:
+                            user_constraints[prop] = row["value"]
+                        else:
+                            user_constraints[prop] = {
+                                "min": row.get("min"),
+                                "max": row.get("max"),
+                            }
+                else:
+                    # row format: {"size": {"min": 8, "max": 12}} or {"size": 10}
+                    user_constraints.update(row)
+
+        # 2) Start from defaults and override with user input
         encoded_values: List[float] = []
         for prop in property_order:
-            spec = constraints.get(prop, 0.0)
+            default_spec = constraints_default.get(prop, {"min": 0.0, "max": 0.0})
+            default_min = float(default_spec.get("min", 0.0))
+            default_max = float(default_spec.get("max", 0.0))
+
+            spec = user_constraints.get(prop, None)
 
             if isinstance(spec, dict):
-                min_v = float(spec.get("min", 0.0) or 0.0)
-                max_v = float(spec.get("max", 0.0) or 0.0)
+                min_v = default_min if spec.get("min") is None else float(spec.get("min"))
+                max_v = default_max if spec.get("max") is None else float(spec.get("max"))
+            elif spec is None:
+                min_v, max_v = default_min, default_max
             else:
                 try:
                     value = float(spec)
+                    min_v, max_v = value, value
                 except (TypeError, ValueError):
-                    value = 0.0
-                min_v = value
-                max_v = value
+                    min_v, max_v = default_min, default_max
 
             encoded_values.extend([min_v, max_v])
 
         vec = torch.tensor(encoded_values, dtype=torch.float32, device=device)
-
-        # Fit to condition_dim
         usable = min(vec.numel(), self.condition_dim)
         cond[:, :usable] = vec[:usable].unsqueeze(0).expand(count, -1)
 
