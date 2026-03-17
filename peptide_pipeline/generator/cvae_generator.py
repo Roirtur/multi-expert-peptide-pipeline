@@ -232,3 +232,10 @@ class CVAEGenerator(BaseGenerator):
         cond[:, :usable] = vec[:usable].unsqueeze(0).expand(count, -1)
 
         return cond
+
+    def save_model(self, path: str) -> None:
+        torch.save(self.state_dict(), path)
+
+    def load_model(self, path: str) -> None:
+        self.load_state_dict(torch.load(path, map_location=self.device))
+        self.to(self.device)
