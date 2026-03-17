@@ -1,7 +1,14 @@
+from pydantic import BaseModel
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 import logging
 
+
+class Chemist_output_payload(BaseModel):
+    sequence: str
+    properties: Dict[str, float]
+    scores: float
+    
 class BaseChemist(ABC):
     """
     Base class for the Chemist Agent (Constraints).
@@ -11,29 +18,21 @@ class BaseChemist(ABC):
     logger = logging.getLogger("peptide_pipeline.chemist")
 
     
+    def __init__(self, Config: BaseModel):
+        super().__init__()
+        self.config = Config
+    
     @abstractmethod
-    def calculate_score(self, peptides: List[str]) -> List[Dict[str, float]]:
+    def get_top_filtered_peptides(self, peptides: List[str], topK: int) -> List[str]:
         """
-        Calculates physicochemical properties for a list of peptides.
+        Returns the top K peptides filtered if any filter
         """
-        raise NotImplementedError("Subclasses must implement calculate_score method.")
-
+        raise NotImplementedError("Subclasses must implement get_top_filtered_peptides method.")
+    
     @abstractmethod
-    def filter_peptides(self, peptides: List[str], constraints: Dict[str, Any]) -> List[str]:
+    def evaluate_peptides(self, peptides: List[str]) -> List[Dict[str, Any]]:
         """
-        Filters a list of peptides based on chemical constraints.
-            peptides: List of peptide sequences to filter.
-            constraints: Dictionary of chemical constraints to apply.
-            Returns a list of peptides that satisfy the constraints.
-            In case to few peptides are returned after filtering a minimum of x% peptides will be returned based on their score (score is calculated by the target and limit disance)
+        Evaluates a list of peptides and calculates scores for each peptide.
+        Returns a list of dictionaries, each containing property names as keys and their corresponding scores as values for each peptide.
         """
-        raise NotImplementedError("Subclasses must implement filter_peptides method.")
-
-    @abstractmethod
-    def evaluate_peptide(self, peptide: str, config: Dict[str, Any]) -> Dict[str, float]:
-        """
-        Evaluates a single peptide against the provided chemical constraints and calculates a score for each property.
-        Returns a dictionary with property names as keys and their corresponding scores as values.
-        Also returns a boolean indicating if the peptide is within all limits or not.
-        """
-        raise NotImplementedError("Subclasses must implement evaluate_peptide method.")
+        raise NotImplementedError("Subclasses must implement evaluate_peptides method.")
