@@ -128,3 +128,10 @@ class VAEGenerator(BaseGenerator):
                     idx = amino_acids.index(aa)
                     one_hot[i, j * 20 + idx] = 1
         return one_hot
+
+    def save_model(self, path: str) -> None:
+        torch.save(self.state_dict(), path)
+
+    def load_model(self, path: str) -> None:
+        self.load_state_dict(torch.load(path, map_location=self.device))
+        self.to(self.device)
