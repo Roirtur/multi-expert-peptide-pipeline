@@ -11,7 +11,19 @@ The implementation uses ESM-2 embeddings (default: \texttt{facebook/esm2\_t12\_3
 The resulting score is used for relative ranking inside each batch and for Top-$K$ selection by the orchestrator. It should be interpreted as a proxy signal to guide the search process, not as an absolute biological activity measurement.
 
 \subsubsection{Chemist Agent Scoring}
-TODO: Describe how chemistry constraints are converted into quantitative signals (e.g., pass/fail constraints, penalties, or partial scores) and how these values are exposed to the orchestrator.
+
+Crucially, to prevent pipeline starvation (where strict filters might discard the entire population early in the optimization process), the agent employs an adaptive thresholding mechanism. The workflow operates in two phases:
+\begin{enumerate}
+    \item \textbf{Hard Constraint Check:} Candidates are first filtered against strict limits (e.g., range constraints on length or charge).
+    \item \textbf{Population Rescue:} If the survival rate falls below a predefined threshold (e.g., $50\%$), the agent relaxes the hard constraints. It then fills the remaining quota by selecting the top-ranking rejected candidates—those that, while slightly violating limits, are mathematically closest to the ideal TPP.
+\end{enumerate}
+This strategy ensures a continuous flow of candidates to the Biology Agent while maximizing selective pressure towards developable molecules.
+
+\begin{itemize}
+    \item \textbf{Solubility \& Stability:} We calculate the Isoelectric Point (pI) and Net Charge at specific physiological pH levels (e.g., pH 5.5). These metrics are critical for predicting aggregation propensity and solubility in biological fluids.
+    \item \textbf{Bioavailability \& Permeability:} The generated profile includes the partition coefficient ($\log P$), Topological Polar Surface Area (TPSA), and hydrophobicity indices. These values act as proxies for the peptide's ability to cross biological membranes and interact with hydrophobic pockets.
+    \item \textbf{Structural Indices:} Metrics such as the Boman Index are computed to estimate potential protein-binding potential or antimicrobial activity.
+\end{itemize}
 
 \subsubsection{Orchestrator-Level Scoring and Ranking}
 TODO: Describe how the orchestrator combines outputs from expert agents (Biologist + Chemist), applies weighting or filtering rules, and computes the final ranking used for Top-$K$ selection.

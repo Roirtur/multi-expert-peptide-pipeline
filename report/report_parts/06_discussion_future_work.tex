@@ -1,5 +1,12 @@
 \section{Discussion \& Future Work}\label{sec:discussion}
 
+\section{Discussion : Chemist agent possible improvement}
+Trough the whole filtering and scoring process by the agent, the computed scores are obtained using a peptide sequence code (e.g ACDEF). 
+From a certain sequence we can obtain multiple other sequences in the SMILES format (e.g ). Therefore we might be losing possible data along the process.
+Our lack of chemistery knowledge doesn't allows us to be sure of how it would change the outcome of our results or even the biologist agent prediction. 
+
+
+
 \subsection{Future Work: Peptide-Specific Biological Scoring}\label{subsec:future_biologist}
 The main improvement is to replace the current proxy with a model trained (or fine-tuned) specifically on peptides. Ideally, this model should score or classify a peptide conditionally on a target (or target-related context), instead of relying on a general protein-space similarity signal.
 
