@@ -216,3 +216,5 @@ report/*.aux
 report/*.fdb_latexmk
 report/*.fls
 report/*.synctex.gz
+baseline/*.pkl
+baseline/*.pth
