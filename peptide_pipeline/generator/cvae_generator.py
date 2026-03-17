@@ -1,3 +1,27 @@
+"""
+CVAE conditioning constraints (accepted in `constraints` dict):
+
+Each property can be provided as either:
+- scalar: `{"property": value}` (treated as min=max=value)
+- range: `{"property": {"min": x, "max": y}}`
+
+Supported properties:
+- "size": peptide length (number of residues)
+- "molecular_weight": molecular weight
+- "net_charge_pH5_5": net charge at pH 5.5
+- "isoelectric_point": isoelectric point (pI)
+- "hydrophobicity": overall hydrophobicity
+- "hydrophobic_moment": hydrophobic moment
+- "logp": partition coefficient (logP)
+- "boman_index": Boman index
+- "h_bond_donors": hydrogen-bond donor count
+- "h_bond_acceptors": hydrogen-bond acceptor count
+- "tpsa": topological polar surface area
+
+Notes:
+- Properties are defaulted to 0.0 if not provided or if invalid.
+"""
+
 from itertools import count
 
 import torch
@@ -8,6 +32,20 @@ from typing import List, Optional, Dict, Any
 import numpy as np
 from abc import ABC
 from peptide_pipeline.generator.base import BaseGenerator
+
+constraints_default = {
+    "size": {"min": 5, "max": 30},
+    "molecular_weight": {"min": 500, "max": 3000},
+    "net_charge_pH5_5": {"min": -5, "max": 5},
+    "isoelectric_point": {"min": 3, "max": 11},
+    "hydrophobicity": {"min": -2, "max": 2},
+    "hydrophobic_moment": {"min": 0, "max": 1},
+    "logp": {"min": -3, "max": 3},
+    "boman_index": {"min": -5, "max": 5},
+    "h_bond_donors": {"min": 0, "max": 10},
+    "h_bond_acceptors": {"min": 0, "max": 10},
+    "tpsa": {"min": 0, "max": 200},
+}
 
 class CVAEGenerator(BaseGenerator):
 
@@ -57,7 +95,7 @@ class CVAEGenerator(BaseGenerator):
         x_recon = self.decoder(torch.cat([z, y], dim=-1))
         return x_recon, mu, log_var
 
-    def generate_peptides(self, count: int, constraints: Optional[Dict[str, Any]] = None, temperature: float = 1.0) -> List[str]:
+    def generate_peptides(self, count: int, constraints: Optional[Dict[str, Any]] = constraints_default, temperature: float = 1.0) -> List[str]:
         self.eval()
         with torch.no_grad():
             z = torch.randn(count, self.latent_dim, device=self.device)
@@ -132,7 +170,7 @@ class CVAEGenerator(BaseGenerator):
                     idx = amino_acids.index(aa)
                     one_hot[i, j * 20 + idx] = 1
         return one_hot
-    
+
     def _constraints_to_condition_tensor(
     self,
     constraints: Optional[Dict[str, Any]],
