@@ -4,6 +4,7 @@ pandas==3.0.1
 peptides==0.5.0
 pydantic==2.12.5
 rdkit==2025.9.6
+scikit_learn==1.8.0
 textual==8.1.1
-torch==2.7.1+cu118
-transformers==4.57.3
+torch==2.10.0
+transformers==5.2.0

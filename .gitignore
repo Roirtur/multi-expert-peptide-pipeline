@@ -211,3 +211,6 @@ database/*.json
 
 # peptide representation file
 .sdf
+
+baseline/*.pkl
+baseline/*.pth
