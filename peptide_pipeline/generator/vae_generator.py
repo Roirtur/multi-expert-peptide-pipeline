@@ -75,7 +75,7 @@ class VAEGenerator(BaseGenerator):
     def modify_peptides(self, peptides: List[str], feedback: Optional[Any] = None) -> List[str]:
         return self.generate_peptides(len(peptides))
 
-    def train_model(self, data: torch.Tensor, epochs: int = 300, batch_size: int = 64, lr: float = 1e-3, kl_anneal_epochs: int = 100) -> None:
+    def train_model(self, data: torch.Tensor, epochs: int = 300, batch_size: int = 64, lr: float = 1e-3, kl_anneal_epochs: int = 1000) -> None:
         self.train()
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
