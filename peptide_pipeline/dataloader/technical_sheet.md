@@ -2,71 +2,78 @@
 
 ## Purpose
 
-In this project, a DataLoader is the component that turns a raw data source into a clean, usable in-memory object for the rest of the pipeline.
+The DataLoader module converts raw peptide datasets into validated in-memory objects that can be consumed by training and inference components.
 
-Its role is to:
+Primary responsibilities:
 
-- connect to a source (file, URL, API, database export, etc.),
-- parse and normalize the content,
-- perform validation and lightweight preprocessing,
-- expose ready-to-use data through a stable interface.
+- read data from a source path,
+- parse and normalize tabular or JSON content,
+- validate schema expectations,
+- expose loaded data through a stable retrieval API.
 
-The contract is defined by `BaseDataLoader` in `peptide_pipeline/dataloader/base.py`.
-
----
-
-## Base Interface (What Every New DataLoader Must Implement)
-
-Any new dataloader must inherit from `BaseDataLoader` and implement exactly these abstract methods:
-
-### 1) `load_data(self, source: str, **kwargs) -> Any`
-
-This method is responsible for reading the source and preparing data.
-
-Expected behavior:
-
-- accept `source` as the primary location/identifier of the dataset,
-- use `**kwargs` for optional loader options (format-specific settings, filters, split choices, credentials, etc.),
-- parse and preprocess data,
-- store the processed result in an internal attribute (for example `self._data`),
-- return the loaded data object as well.
-
-Implementation notes:
-
-- validate inputs early (missing file, unsupported format, wrong parameters),
-- fail with explicit errors instead of silent fallbacks,
-- keep heavy transformations explicit and documented,
-- keep I/O logic and cleaning logic readable and separated when possible.
-
-### 2) `get_data(self) -> Any`
-
-This method returns the current processed dataset already loaded by `load_data`.
-
-Expected behavior:
-
-- return the internal data object in a stable structure,
-- raise a clear error if called before `load_data`,
-- avoid hidden reloading or side effects.
-
-Implementation notes:
-
-- `get_data` should be predictable and cheap,
-- do not mutate data when serving it,
-- if defensive copying is needed, do it intentionally and document it.
+Base contract: `BaseDataLoader` in `peptide_pipeline/dataloader/base.py`.
 
 ---
 
-## How To Add a New DataLoader
+## Base Contract
 
-Use this workflow when creating a new loader implementation.
+Every dataloader implementation must inherit from `BaseDataLoader` and implement the following methods.
 
-1. Create a new class that inherits from `BaseDataLoader`.
-2. Add an initializer (`__init__`) to define internal state (for example `self._data = None`).
-3. Implement `load_data(source, **kwargs)` with source-specific parsing and preprocessing.
-4. Implement `get_data()` to return the prepared data.
-5. Add clear validation and error messages for invalid source/options.
-6. Ensure output shape/type is documented and consistent.
-7. Add usage examples and tests for normal and failure cases.
+### `load_data(self, source: str, **kwargs) -> Any`
+
+- Loads and preprocesses dataset content from `source`.
+- Accepts loader-specific options through `**kwargs`.
+- Stores processed data internally.
+- Returns a loaded object (contract-level expectation).
+
+### `get_data(self) -> Any`
+
+- Returns the currently loaded data object.
+- Must fail explicitly when called before loading.
+- Must avoid hidden side effects.
+
+---
+
+## Inherited Capabilities
+
+By subclassing `BaseDataLoader`, you inherit:
+
+- `logger` configured under `"peptide_pipeline.dataloader"`.
+
+---
+
+## Current Implementations In This Repository
+
+### `dataloader.py::DataLoader`
+
+- CSV-oriented loader using `pandas.read_csv`.
+- Validates presence of `NAME` and `SEQUENCE` columns.
+- Supports selecting a subset of columns via `columns`.
+- Stores loaded data in `self.data` and exposes it via `get_data`.
+
+### `dataloader_json.py::DataLoader`
+
+- JSON-oriented loader supporting standard JSON and JSON Lines.
+- Supports optional `required_columns`, `rename_map`, and `auto_create_column`.
+- Supports optional projection through `columns`.
+- Stores loaded data in `self.data` and exposes it via `get_data`.
+
+### Important Behavior Notes
+
+- Both current implementations terminate the process with `sys.exit(1)` on error.
+- Both current `load_data` implementations are annotated to return `None`, even though the abstract contract uses `-> Any`.
+- For new implementations, prefer raising explicit exceptions instead of process termination.
+
+---
+
+## How To Add A New DataLoader
+
+1. Create a class inheriting from `BaseDataLoader`.
+2. Initialize internal storage (for example, `self.data = None`).
+3. Implement `load_data(source, **kwargs)` for one source format or one strategy.
+4. Implement `get_data()` with a clear pre-load failure mode.
+5. Document accepted kwargs and output schema.
+6. Add tests for valid input, invalid input, and pre-load access.
 
 ---
 
@@ -78,42 +85,30 @@ from peptide_pipeline.dataloader.base import BaseDataLoader
 
 
 class MyDataLoader(BaseDataLoader):
-	def __init__(self):
-		self._data = None
+    def __init__(self):
+        self.data = None
 
-	def load_data(self, source: str, **kwargs) -> Any:
-		# 1) Validate source/options
-		# 2) Read raw content
-		# 3) Clean/normalize
-		# 4) Store in self._data
-		self._data = ...
-		return self._data
+    def load_data(self, source: str, **kwargs) -> Any:
+        # 1) Validate source/options
+        # 2) Read raw content
+        # 3) Normalize schema
+        # 4) Store in self.data
+        self.data = ...
+        return self.data
 
-	def get_data(self) -> Any:
-		if self._data is None:
-			raise RuntimeError("Data not loaded. Call load_data(...) first.")
-		return self._data
+    def get_data(self) -> Any:
+        if self.data is None:
+            raise RuntimeError("Data not loaded. Call load_data(...) first.")
+        return self.data
 ```
 
 ---
 
-## Design Guidelines For New Developers
+## Developer Checklist
 
-- Keep one loader focused on one source format or one loading strategy.
-- Prefer explicit options in `**kwargs` and document accepted keys.
-- Always make error messages actionable (what failed and how to fix it).
-- Keep preprocessing deterministic so training results are reproducible.
-- If you change output structure, communicate it clearly to downstream users.
-
----
-
-## Quick Validation Checklist
-
-Before opening a PR for a new dataloader:
-
-- `load_data` handles valid input correctly.
-- `load_data` fails clearly on bad input.
-- `get_data` returns expected object after loading.
-- `get_data` fails clearly if data is not loaded yet.
-- Method behavior is documented (inputs, output shape/type, key options).
+- `load_data` validates path and expected schema.
+- Errors are explicit and actionable.
+- `get_data` fails clearly if loading did not run.
+- Output shape and key columns are documented.
+- Tests cover success and failure paths.
 

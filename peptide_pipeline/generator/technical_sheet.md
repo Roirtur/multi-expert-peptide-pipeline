@@ -2,101 +2,80 @@
 
 ## Purpose
 
-In this project, a Generator is the component that proposes peptide candidates and improves them over time.
+The Generator module is responsible for proposing peptide candidates and refining them across optimization cycles.
 
-Its role is to:
+Primary responsibilities:
 
-- create new peptide sequences,
-- update existing sequences from feedback,
-- learn from data so proposals become better,
-- expose a stable interface to the rest of the pipeline.
+- generate new peptide sequences,
+- modify existing candidates from feedback,
+- train or update an internal generative model,
+- expose a stable API for orchestrator integration.
 
-The contract is defined by `BaseGenerator` in `peptide_pipeline/generator/base.py`.
-
----
-
-## Base Interface (What Every New Generator Must Implement)
-
-Any new generator must inherit from `BaseGenerator` and implement exactly these abstract methods:
-
-### 1) `generate_peptides(self, count: int, constraints: Optional[Dict[str, Any]] = None) -> List[str]`
-
-This method is responsible for creating new peptide sequences.
-
-Expected behavior:
-
-- return exactly `count` peptide sequences,
-- return a `List[str]` where each item is one peptide sequence,
-- optionally use `constraints` to guide generation (length, motif rules, residue bans, property targets, etc.),
-- ensure outputs are valid and usable by downstream components.
-
-Implementation notes:
-
-- validate `count` and constraints early,
-- fail with clear errors for impossible or invalid constraints,
-- keep generation behavior reproducible when randomness is involved,
-- document which keys are accepted in `constraints`.
-
-### 2) `modify_peptides(self, peptides: List[str], feedback: Optional[Any] = None) -> List[str]`
-
-This method is responsible for refining or evolving an existing batch of peptides.
-
-Expected behavior:
-
-- accept a list of input peptides to modify,
-- optionally use `feedback` to guide modifications,
-- return a `List[str]` of updated peptide sequences,
-- preserve a predictable relation between input and output (for example, same order or same output size), and document it.
-
-Implementation notes:
-
-- validate peptide inputs before applying modifications,
-- define how feedback is interpreted and document expected format,
-- avoid hidden side effects outside method scope,
-- ensure modified outputs remain valid peptide strings.
-
-### 3) `train_model(self, data: Any, **kwargs) -> None`
-
-This method is responsible for training or updating the generator model.
-
-Expected behavior:
-
-- consume training data from `data`,
-- support optional training options through `**kwargs` (epochs, learning rate, batch size, output paths, etc.),
-- update internal model state so generation quality can improve,
-- not return data (returns `None`).
-
-Implementation notes:
-
-- validate training inputs and required options,
-- document accepted `**kwargs` keys and defaults,
-- keep training workflow explicit (setup, optimization, checkpointing),
-- raise actionable errors when configuration is incomplete.
+Base contract: `BaseGenerator` in `peptide_pipeline/generator/base.py`.
 
 ---
 
-## What You Inherit From BaseGenerator
+## Base Contract
 
-When you subclass `BaseGenerator`, you can directly use:
+Every generator implementation must inherit from `BaseGenerator` and implement the following methods.
 
-- `self.device`: automatically set to `"cuda"` if available, otherwise `"cpu"`,
-- `logger`: class logger configured under `"peptide_pipeline.generator"`,
-- `nn.Module` behavior: because `BaseGenerator` inherits from `torch.nn.Module`, your generator can use standard PyTorch module patterns.
+### `generate_peptides(self, count: int, constraints: Optional[Dict[str, Any]] = None) -> List[str]`
+
+- Produces exactly `count` peptide sequences.
+- Accepts optional `constraints` to guide generation.
+- Returns one peptide string per list item.
+
+### `modify_peptides(self, peptides: List[str], feedback: Optional[Any] = None) -> List[str]`
+
+- Refines an input peptide batch.
+- May use `feedback` as an optional control signal.
+- Returns a predictable output mapping (for example, same list length and order) documented by the implementation.
+
+### `train_model(self, data: Any, **kwargs) -> None`
+
+- Trains or updates the underlying generator model.
+- Uses `data` plus optional training parameters in `**kwargs`.
+- Updates model state in place and returns `None`.
 
 ---
 
-## How To Add a New Generator
+## Inherited Capabilities
 
-Use this workflow when creating a new generator implementation.
+By subclassing `BaseGenerator`, you inherit:
 
-1. Create a new class that inherits from `BaseGenerator`.
-2. Call `super().__init__()` in your initializer to setup inherited state (including `self.device`).
-3. Add your model components and internal state in `__init__`.
-4. Implement `generate_peptides(count, constraints=None)`.
-5. Implement `modify_peptides(peptides, feedback=None)`.
-6. Implement `train_model(data, **kwargs)`.
-7. Validate inputs and emit clear, actionable errors.
-8. Add tests for normal behavior and failure cases for all three methods.
+- `self.device` initialized as `"cuda"` when available, otherwise `"cpu"`,
+- `logger` configured under `"peptide_pipeline.generator"`,
+- full `torch.nn.Module` behavior.
+
+---
+
+## Current Implementations In This Repository
+
+### `VAEGenerator` (`peptide_pipeline/generator/vae_generator.py`)
+
+- Unconditional VAE peptide generator.
+- Generates sequences by sampling latent vectors and decoding token logits.
+- `modify_peptides` currently regenerates a new batch of equal size.
+- `train_model` uses reconstruction loss + KL regularization with cosine LR scheduling.
+
+### `CVAEGenerator` (`peptide_pipeline/generator/cvae_generator.py`)
+
+- Conditional VAE supporting property-based constraints.
+- Encodes constraints into a conditioning tensor and generates peptides with sampled lengths.
+- Supports property ranges and scalar constraints.
+- `train_model` consumes encoded sequences, condition vectors, and sequence lengths.
+
+---
+
+## How To Add A New Generator
+
+1. Create a class inheriting from `BaseGenerator`.
+2. Call `super().__init__()` in `__init__`.
+3. Define model layers and internal state.
+4. Implement `generate_peptides`, `modify_peptides`, and `train_model`.
+5. Validate method inputs and raise explicit errors for invalid usage.
+6. Document accepted schemas for `constraints`, `feedback`, and `**kwargs`.
+7. Add tests for success and failure paths.
 
 ---
 
@@ -109,60 +88,41 @@ from peptide_pipeline.generator.base import BaseGenerator
 
 
 class MyGenerator(BaseGenerator):
-	def __init__(self):
-		super().__init__()
-		self.model = nn.Identity()
+    def __init__(self):
+        super().__init__()
+        self.model = nn.Identity()
 
-	def generate_peptides(
-		self,
-		count: int,
-		constraints: Optional[Dict[str, Any]] = None,
-	) -> List[str]:
-		if count <= 0:
-			raise ValueError("count must be > 0")
+    def generate_peptides(
+        self,
+        count: int,
+        constraints: Optional[Dict[str, Any]] = None,
+    ) -> List[str]:
+        if count <= 0:
+            raise ValueError("count must be > 0")
+        return ["ACDE" for _ in range(count)]
 
-		# Replace with real generation logic.
-		peptides = ["ACDE" for _ in range(count)]
-		return peptides
+    def modify_peptides(
+        self,
+        peptides: List[str],
+        feedback: Optional[Any] = None,
+    ) -> List[str]:
+        if not peptides:
+            return []
+        return peptides
 
-	def modify_peptides(
-		self,
-		peptides: List[str],
-		feedback: Optional[Any] = None,
-	) -> List[str]:
-		if not peptides:
-			return []
-
-		# Replace with real refinement logic.
-		return peptides
-
-	def train_model(self, data: Any, **kwargs) -> None:
-		if data is None:
-			raise ValueError("data must not be None")
-
-		# Replace with real training loop.
-		return None
+    def train_model(self, data: Any, **kwargs) -> None:
+        if data is None:
+            raise ValueError("data must not be None")
+        return None
 ```
 
 ---
 
-## Design Guidelines For New Developers
+## Developer Checklist
 
-- Keep one generator focused on one generation strategy.
-- Define and document your expected constraint and feedback schemas.
-- Keep method contracts stable so orchestrator and evaluators can rely on them.
-- Make failures explicit and easy to debug.
-- Ensure generated and modified sequences are always valid for downstream use.
-
----
-
-## Quick Validation Checklist
-
-Before opening a PR for a new generator:
-
-- `generate_peptides` returns the requested number of valid strings.
-- `generate_peptides` handles/validates constraints as documented.
-- `modify_peptides` handles empty and invalid inputs clearly.
-- `modify_peptides` applies feedback consistently and predictably.
-- `train_model` validates `data` and required training options.
-- All three methods are covered by tests (success + failure cases).
+- `generate_peptides` returns exactly the requested count.
+- All generated and modified sequences are valid peptide strings.
+- `constraints` and `feedback` formats are documented.
+- `train_model` required inputs are validated.
+- Public behavior is deterministic where reproducibility is required.
+- Tests cover normal and failure behavior for all abstract methods.

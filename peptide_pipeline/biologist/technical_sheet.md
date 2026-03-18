@@ -2,80 +2,74 @@
 
 ## Purpose
 
-In this project, a Biologist is the component that evaluates peptide candidates from a biological perspective.
+The Biologist module evaluates peptide candidates from a biological relevance perspective.
 
-Its role is to:
+Primary responsibilities:
 
-- score peptide quality in a normalized way,
-- estimate biological activity for peptide batches,
-- optionally use contextual biological information during prediction,
-- expose a stable interface to the rest of the pipeline.
+- score candidate peptides in a normalized way,
+- estimate biological activity for a peptide batch,
+- optionally incorporate contextual biological information,
+- provide stable outputs for orchestrator ranking and filtering.
 
-The contract is defined by `BaseBiologist` in `peptide_pipeline/biologist/base.py`.
-
----
-
-## Base Interface (What Every New Biologist Must Implement)
-
-Any new biologist must inherit from `BaseBiologist` and implement exactly these abstract methods:
-
-### 1) `score_peptides(self, peptides: List[str]) -> List[float]`
-
-This method is responsible for assigning a normalized score to each peptide.
-
-Expected behavior:
-
-- accept a batch of peptide sequences as `List[str]`,
-- return one scalar score per input peptide,
-- return a `List[float]` aligned with input order,
-- keep scores in the `[0, 1]` range as defined by the base contract.
-
-Implementation notes:
-
-- validate peptide inputs early (empty strings, invalid characters, malformed entries),
-- document your scoring logic and assumptions,
-- keep scoring deterministic when possible for reproducibility,
-- fail with clear and actionable errors when input is invalid.
-
-### 2) `predict_activity(self, peptides: List[str], context: Optional[Any] = None) -> List[float]`
-
-This method is responsible for predicting functional activity for each peptide.
-
-Expected behavior:
-
-- accept a peptide batch as `List[str]`,
-- optionally consume `context` to enrich predictions (for example target metadata or reference information),
-- return a `List[float]` with one prediction per peptide,
-- preserve a predictable mapping between inputs and outputs (same order and same length).
-
-Implementation notes:
-
-- define and document what `context` format you support,
-- handle missing or unsupported context explicitly,
-- avoid hidden side effects during prediction,
-- make error messages explicit about what failed and how to fix it.
+Base contract: `BaseBiologist` in `peptide_pipeline/biologist/base.py`.
 
 ---
 
-## What You Inherit From BaseBiologist
+## Base Contract
 
-When you subclass `BaseBiologist`, you can directly use:
+Every biologist implementation must inherit from `BaseBiologist` and implement the following methods.
 
-- `logger`: class logger configured under `"peptide_pipeline.biologist"` for consistent logging.
+### `score_peptides(self, peptides: List[str]) -> List[float]`
+
+- Returns one scalar score per peptide.
+- Preserves input order in output alignment.
+- Base contract specifies normalized scores in `[0, 1]`.
+
+### `predict_activity(self, peptides: List[str], context: Optional[Any] = None) -> List[float]`
+
+- Returns one activity estimate per peptide.
+- Accepts optional `context` to adjust prediction behavior.
+- Preserves input-to-output mapping.
 
 ---
 
-## How To Add a New Biologist
+## Inherited Capabilities
 
-Use this workflow when creating a new biologist implementation.
+By subclassing `BaseBiologist`, you inherit:
 
-1. Create a new class that inherits from `BaseBiologist`.
-2. Add an initializer (`__init__`) to define model/state dependencies.
-3. Implement `score_peptides(peptides)`.
-4. Implement `predict_activity(peptides, context=None)`.
-5. Validate inputs and context with clear error handling.
-6. Keep output structure stable and documented.
-7. Add tests for success cases and failure cases for both methods.
+- `logger` configured under `"peptide_pipeline.biologist"`.
+
+---
+
+## Current Implementations In This Repository
+
+### `ESMBiologistCos` (`peptide_pipeline/biologist/esm_biologist_cos.py`)
+
+- Uses ESM-2 embeddings with cosine similarity against a reference peptide.
+- Converts cosine similarity from `[-1, 1]` to `[0, 1]`.
+- Supports optional context by temporarily swapping the reference embedding.
+
+### `ESMBiologistZscore` (`peptide_pipeline/biologist/esm_biologist_zscore.py`)
+
+- Uses ESM-2 embeddings and L2 distance to a reference embedding.
+- Applies z-score normalization across batch distances, then sigmoid scaling.
+- Supports optional context with temporary reference replacement.
+
+### Important Behavior Notes
+
+- Both implementations return empty lists for empty peptide inputs.
+- Both implementations depend on `transformers` model loading and may require access to Hugging Face model files.
+
+---
+
+## How To Add A New Biologist
+
+1. Create a class inheriting from `BaseBiologist`.
+2. Define model dependencies and runtime configuration in `__init__`.
+3. Implement `score_peptides` with deterministic, documented behavior.
+4. Implement `predict_activity` and define accepted context schema.
+5. Validate peptide and context inputs.
+6. Add tests for normal behavior, invalid inputs, and edge cases.
 
 ---
 
@@ -87,47 +81,30 @@ from peptide_pipeline.biologist.base import BaseBiologist
 
 
 class MyBiologist(BaseBiologist):
-	def __init__(self):
-		self._is_ready = True
+    def __init__(self):
+        self._is_ready = True
 
-	def score_peptides(self, peptides: List[str]) -> List[float]:
-		if not peptides:
-			return []
+    def score_peptides(self, peptides: List[str]) -> List[float]:
+        if not peptides:
+            return []
+        return [0.5 for _ in peptides]
 
-		# Replace with real scoring logic.
-		return [0.5 for _ in peptides]
-
-	def predict_activity(
-		self,
-		peptides: List[str],
-		context: Optional[Any] = None,
-	) -> List[float]:
-		if not peptides:
-			return []
-
-		# Replace with real activity prediction logic.
-		return [0.5 for _ in peptides]
+    def predict_activity(
+        self,
+        peptides: List[str],
+        context: Optional[Any] = None,
+    ) -> List[float]:
+        if not peptides:
+            return []
+        return [0.5 for _ in peptides]
 ```
 
 ---
 
-## Design Guidelines For New Developers
+## Developer Checklist
 
-- Keep one biologist focused on one biological evaluation strategy.
-- Define clear contracts for inputs, outputs, and accepted context.
-- Keep scoring and activity prediction behavior consistent across runs.
-- Ensure output list length always matches input list length.
-- Use logging to expose key decisions and troubleshooting details.
-
----
-
-## Quick Validation Checklist
-
-Before opening a PR for a new biologist:
-
-- `score_peptides` validates peptide inputs correctly.
-- `score_peptides` returns one `[0, 1]` score per peptide.
-- `predict_activity` supports documented context behavior.
-- `predict_activity` returns one value per peptide in the same order.
-- Both methods fail clearly on invalid inputs.
-- Tests cover success and failure paths for both methods.
+- `score_peptides` returns one score per peptide in stable order.
+- Score range and scaling are explicitly documented.
+- `predict_activity` context format is documented and validated.
+- Error handling is explicit and actionable.
+- Tests cover expected behavior and failure modes.
