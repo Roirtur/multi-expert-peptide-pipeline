@@ -39,6 +39,7 @@ constraints_default = {
     "net_charge_pH5_5": {"min": -5, "max": 5},
     "isoelectric_point": {"min": 3, "max": 11},
     "hydrophobicity": {"min": -2, "max": 2},
+    "cathionicity": {"min": -5, "max": 5},
     "hydrophobic_moment": {"min": 0, "max": 1},
     "logp": {"min": -3, "max": 3},
     "boman_index": {"min": -5, "max": 5},
@@ -49,9 +50,12 @@ constraints_default = {
 
 class CVAEGenerator(BaseGenerator):
 
-    def __init__(self, input_dim: int = 120, latent_dim: int = 64, hidden_dim: int = 256, condition_dim: int = 32):
+    def __init__(self, input_dim: int = 120, latent_dim: int = 64, hidden_dim: int = 256, condition_dim: int = 32, max_len: int = 14):
         super().__init__()
-        self.input_dim = input_dim
+        self.max_len = max_len
+        self.pad_idx = 20
+        self.vocab_size = 21  # 20 amino acids + 1 PAD
+        self.input_dim = self.max_len * self.vocab_size  
         self.latent_dim = latent_dim
         self.hidden_dim = hidden_dim
         self.condition_dim = condition_dim
@@ -59,7 +63,7 @@ class CVAEGenerator(BaseGenerator):
 
         # Encoder
         self.encoder = nn.Sequential(
-            nn.Linear(input_dim + condition_dim, hidden_dim),
+            nn.Linear(self.input_dim + condition_dim, hidden_dim),
             nn.LayerNorm(hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim // 2),
@@ -76,7 +80,7 @@ class CVAEGenerator(BaseGenerator):
             nn.Linear(hidden_dim // 2, hidden_dim),
             nn.LayerNorm(hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, input_dim)
+            nn.Linear(hidden_dim, self.input_dim)
             # No Sigmoid — raw logits fed to cross_entropy
         )
 
@@ -95,34 +99,44 @@ class CVAEGenerator(BaseGenerator):
         x_recon = self.decoder(torch.cat([z, y], dim=-1))
         return x_recon, mu, log_var
 
-    def generate_peptides(self, count: int, constraints: Optional[Dict[str, Any]] = constraints_default, temperature: float = 1.0) -> List[str]:
+    def generate_peptides(self, count, constraints=None, temperature=1.0):
         self.eval()
         with torch.no_grad():
             z = torch.randn(count, self.latent_dim, device=self.device)
             y = self._constraints_to_condition_tensor(constraints, count, device=self.device)
+
+            size = (constraints or {}).get("size", {"min": 5, "max": self.max_len})
+            lo = int(size.get("min", 5))
+            hi = int(size.get("max", self.max_len))
+            lo = max(1, min(lo, self.max_len))
+            hi = max(lo, min(hi, self.max_len))
+            sampled_lengths = torch.randint(lo, hi + 1, (count,), device=self.device)
+
             logits = self.decoder(torch.cat([z, y], dim=-1))
-            num_positions = self.input_dim // 20
-            logits = logits.view(count, num_positions, 20)
-            # Temperature sampling for diversity — higher = more random
-            probs = F.softmax(logits / temperature, dim=-1)
-            amino_acid_indices = torch.multinomial(
-                probs.view(-1, 20), num_samples=1
-            ).view(count, num_positions).cpu().numpy()
+            logits = logits.view(count, self.max_len, self.vocab_size)
+
+            aa_logits = logits[:, :, :20]
+            probs = F.softmax(aa_logits / max(temperature, 1e-6), dim=-1)
+            idx = torch.multinomial(probs.view(-1, 20), num_samples=1).view(count, self.max_len)
+
             amino_acids = "ACDEFGHIKLMNPQRSTVWY"
-            peptides = ["".join([amino_acids[idx] for idx in seq]) for seq in amino_acid_indices]
+            peptides = []
+            for i in range(count):
+                L = int(sampled_lengths[i].item())
+                peptides.append("".join(amino_acids[j] for j in idx[i, :L].cpu().tolist()))
+
         self.train()
         return peptides
 
     def modify_peptides(self, peptides: List[str], feedback: Optional[Any] = None) -> List[str]:
         return self.generate_peptides(len(peptides))
 
-    def train_model(self, data: torch.Tensor, conditions: torch.Tensor, epochs: int = 300, batch_size: int = 64, lr: float = 1e-3, kl_anneal_epochs: int = 100) -> None:
+    def train_model(self, data, conditions, lengths, epochs=300, batch_size=64, lr=1e-3, kl_anneal_epochs=100):
         self.train()
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
-        dataset = TensorDataset(data, conditions)
+        dataset = TensorDataset(data, conditions, lengths)
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-        num_positions = self.input_dim // 20
 
         for epoch in range(epochs):
             kl_weight = min(1.0, epoch / max(1, kl_anneal_epochs))
@@ -130,20 +144,24 @@ class CVAEGenerator(BaseGenerator):
             epoch_kl = 0.0
 
             for batch in dataloader:
-                x = batch[0].to(self.device)
-                y = batch[1].to(self.device)
+                x, y, lengths = batch[0].to(self.device), batch[1].to(self.device), batch[2].to(self.device)
                 x_recon, mu, log_var = self.forward(x, y)
 
-                # Reshape for cross entropy
-                recon_logits = x_recon.view(-1, num_positions, 20)
-                targets = x.view(-1, num_positions, 20).argmax(dim=-1)  # [batch, positions]
+                recon_logits = x_recon.view(-1, self.max_len, self.vocab_size)
+                targets = x.view(-1, self.max_len, self.vocab_size).argmax(dim=-1)  # [B, L]
 
-                recon_loss = F.cross_entropy(
-                    recon_logits.reshape(-1, 20),
-                    targets.reshape(-1)
-                )
+                per_tok = F.cross_entropy(
+                    recon_logits.reshape(-1, self.vocab_size),
+                    targets.reshape(-1),
+                    reduction="none"
+                ).view(-1, self.max_len)
+
+                # mask out PAD positions
+                pos = torch.arange(self.max_len, device=self.device).unsqueeze(0)    # [1, L]
+                mask = (pos < lengths.unsqueeze(1)).float()                          # [B, L]
+                recon_loss = (per_tok * mask).sum() / mask.sum().clamp_min(1.0)
+
                 kl_loss = -0.5 * torch.mean(1 + log_var - mu.pow(2) - log_var.exp())
-
                 loss = recon_loss + kl_weight * kl_loss
 
                 optimizer.zero_grad()
@@ -194,6 +212,7 @@ class CVAEGenerator(BaseGenerator):
             "net_charge_pH5_5",
             "isoelectric_point",
             "hydrophobicity",
+            "cathionicity",
             "hydrophobic_moment",
             "logp",
             "boman_index",
