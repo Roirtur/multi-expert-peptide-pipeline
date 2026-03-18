@@ -1,4 +1,18 @@
 \section{Context and Related Work}\label{sec:context}
-TODO: Discuss existing methods for peptide generation (traditional machine learning vs. generative AI).
-TODO: Introduce the concept of Agentic Workflows / Multi-Agent LLM systems.
-TODO: Define the scope (AI orchestration focus, no deep biology/chemistry background assumed, solely in silico with proxy scores)[cite: 7, 38, 39].
+
+\subsection{Evolution of In Silico Peptide Generation}
+The computational identification and design of therapeutic peptides have evolved from rule-based filtering to data-driven learning pipelines \cite{wan2024machine}. Early \textit{in silico} methods relied on handcrafted descriptors and QSAR-style modeling, using aggregate physicochemical indicators (e.g., charge, hydrophobicity, or sequence length) as proxies for feasibility and activity \cite{wan2024machine}. These descriptors are still widely used as practical constraints, but current workflows increasingly combine them with learned sequence representations.
+
+In recent years, generative and predictive models have enabled large-scale exploration of peptide sequence space. Broadly, modern systems map discrete sequences into continuous representations, generate candidate peptides under configurable objectives, and score them with learned or heuristic predictors. This shift has improved throughput and candidate quality, but also highlighted a persistent challenge: no single model reliably satisfies multiple objectives at once (activity, safety, synthesizability, stability), which motivates more structured optimization workflows.
+
+\subsection{The Shift to Agentic Workflows}
+Despite these advances, peptide design pipelines often remain fragmented: generation, constraint checking, and biological scoring are implemented as separate components with limited coordination \cite{huang2025biomni}. As a result, one-shot generation frequently produces candidates that satisfy part of the objective but violate other key constraints.
+
+Agentic workflows address this by organizing the process as an explicit iterative loop: propose candidates, evaluate them with specialized modules, revise, and repeat \cite{xi2023agentic}. Rather than relying on a single monolithic predictor, this design decomposes the objective into complementary roles and makes trade-offs explicit at each iteration. For constrained peptide optimization, the essential benefit is the coordination mechanism itself: specialized agents, shared evaluation signals, and closed-loop refinement \cite{wan2024machine}.
+
+\subsection{Project Scope and Alignment}
+This project is scoped as an AI systems Proof of Concept for iterative peptide design. Concretely, the expected deliverable is an end-to-end multi-expert pipeline with three specialized agents and one orchestrator, where each iteration performs candidate proposal, chemistry-oriented constraint filtering, biology-oriented critique, and revision. The scientific objective is not to claim new biological mechanisms, but to test whether explicit role decomposition and orchestration improve optimization behavior under practical proxy constraints.
+
+The project was supervised by an interdisciplinary team (AI, chemistry, and biology), which helped keep the work aligned with domain expectations, informed the definition of proxy constraints and evaluation criteria, and supported critical review of the reported results.
+
+The work remains strictly \textit{in silico}: no wet-lab validation is assumed, and all scores are documented proxies. Alignment with the project brief is ensured through quantitative reporting on validity, average and Top-K quality, diversity, constraint pass rates, and score evolution across rounds, followed by comparison to at least one non-agentic baseline. In this framing, success is defined by measurable and reproducible gains from iterative coordination rather than by absolute biological performance claims.
