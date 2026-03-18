@@ -64,6 +64,10 @@ class ChemistAgent(BaseChemist):
         Returns a list of dictionaries, each containing property names as keys and their corresponding scores as values for each peptide.
         Also includes a boolean indicating if each peptide is within all limits or not.
         """
+        for peptide in peptides:
+            if not self.validate_sequence(peptide):
+                self.logger.warning(f"Peptide '{peptide}' is invalid and will be skipped.")
+                peptides.remove(peptide)
         if not peptides:
             return []
 

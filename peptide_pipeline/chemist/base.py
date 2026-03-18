@@ -3,11 +3,6 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Tuple
 import logging
 
-
-class Chemist_output_payload(BaseModel):
-    sequence: str
-    properties: Dict[str, float]
-    scores: float
     
 class BaseChemist(ABC):
     """
@@ -22,13 +17,20 @@ class BaseChemist(ABC):
         super().__init__()
         self.config = Config
     
+    def validate_sequence(self, sequence: str) -> bool:
+        """
+        Validates a peptide sequence.
+        """
+        self.logger.warning(f"Sequence {sequence} is invalid. The sequence contains non-standard amino acids. Only the 20 standard amino acids are allowed.")
+        return all(aa in self.basic_aa for aa in sequence)
+
     @abstractmethod
     def get_top_filtered_peptides(self, peptides: List[str], topK: int) -> List[str]:
         """
-        Returns the top K peptides filtered if any filter
+        Returns the top K peptides filtered if any filter is applied.
         """
         raise NotImplementedError("Subclasses must implement get_top_filtered_peptides method.")
-    
+
     @abstractmethod
     def evaluate_peptides(self, peptides: List[str]) -> List[Dict[str, Any]]:
         """
