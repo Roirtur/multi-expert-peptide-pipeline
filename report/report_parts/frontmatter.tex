@@ -1,14 +1,7 @@
 \title{A Multi-Expert Agentic Pipeline for Peptide Generation}
 
-\author{Fitger~Nathan,~Iliescu~Eduard,~Macdonald~Arthur,~Roudeau~Niels%
-\thanks{Universit\'e de Bordeaux, Master 2, 2026.\\
-Akka Zemmari, Enzo Eddebbarh, Johan Samot}}
+\author{Fitger~Nathan,~Iliescu~Eduard,~Macdonald~Arthur,~Roudeau~Niels\\
+Universit\'e de Bordeaux, Master 2, 2026\\
+Supervisors: Akka Zemmari, Enzo Eddebbarh, Johan Samot}
 
-\IEEEtitleabstractindextext{%
-\begin{abstract}
-We present a proof-of-concept multi-expert agentic pipeline for \textit{in silico} peptide generation \cite{wang2022machine}. A central orchestrator coordinates three specialized agents: an AI Designer that proposes candidates, a Chemistry Constraints agent that enforces proxy feasibility rules (length, net charge, hydrophobicity, and forbidden motifs), and a Biology Function/Risk agent that critiques expected activity and toxicity-related risks \cite{veltri2018deep}. The pipeline iterates through a propose $\rightarrow$ filter $\rightarrow$ score $\rightarrow$ revise loop, with round-level logs for traceability. Evaluation is fully quantitative and reports validity, average and Top-K score, diversity, and constraint pass rates against a non-agentic baseline. Results show that iterative multi-agent coordination improves both constraint satisfaction and top-ranked candidate quality over single-pass generation \cite{wang2022machine,veltri2018deep,rives2021biological}.
-\end{abstract}
-
-\begin{IEEEkeywords}
-Multi-Agent Systems, Peptide Generation, In Silico Drug Design, Variational Autoencoder, Conditional Variational Autoencoder, Evolutionary Scale Modeling.
-\end{IEEEkeywords}}
+\date{2026}

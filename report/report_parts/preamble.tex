@@ -1,8 +1,4 @@
-\ifCLASSOPTIONcompsoc
-\usepackage[nocompress]{cite}
-\else
 \usepackage{cite}
-\fi
 
 \usepackage{graphicx}
 \usepackage{multirow}
@@ -17,5 +13,11 @@
 % Setup for proper character encoding
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
+
+% In report class, sections are normally numbered as chapter.section (e.g., 0.1).
+% This forces flat numbering: 1, 2, 3, ...
+\renewcommand{\thesection}{\arabic{section}}
+\renewcommand{\thesubsection}{\thesection.\arabic{subsection}}
+\renewcommand{\thesubsubsection}{\thesubsection.\arabic{subsubsection}}
 
 \hyphenation{op-tical net-works semi-conduc-tor}

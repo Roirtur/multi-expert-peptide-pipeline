@@ -60,47 +60,65 @@ The global pipeline is organized around three specialized agents coordinated by 
 % 5. Biology -> Orchestrator
 \draw[scoreFlow] (bio.north) |- node[pos=0.75, above, font=\sffamily\footnotesize, align=center] {Bio Scores\\(Activity \& Risks)} (orch.east);
 
+% Enforce a symmetric final bounding box around x=0 to guarantee true global centering.
+\pgfresetboundingbox
+\path (-5.9, -3.4) rectangle (8.2, 3);
+
 \end{tikzpicture}
 \caption{Agentic Pipeline Architecture. Solid lines denote the sequential flow of peptide candidate batches. Dashed lines indicate the feedback loops, where both the Chemistry and Biology agents return their respective proxy scores back to the Orchestrator. Color coding differentiates the specialized domains of the pipeline.}
 \label{fig:pipeline_professional_colored}
 \end{figure*}
 
 \subsection{The Orchestrator}\label{subsec:orchestrator}
-TODO: Explain how the orchestrator manages the iterative loop, enforces stopping criteria, and maintains traceability (logs)[cite: 18, 33].
+The Orchestrator is the control layer that turns the three experts into a single iterative optimization system. 
+Its role is to enforce a fixed sequence of operations:
+\begin{enumerate}
+	\item Request a batch of candidates from the Generator (if not given when originally called)
+	\item Pass this batch through the Chemistry Agent to keep only chemically admissible peptides and associated proxy descriptors, and  send the surviving candidates to the Biology Agent for biological scoring. 
+	\item Based on these expert outputs, the Orchestrator ranks candidates, keeps the Top-$K$ subset, and uses this subset as the seed for the next generation cycle.
+\end{enumerate}
+In this way, each iteration combines exploration (new proposals) and exploitation (retaining best current candidates) under one consistent decision policy.
+The stopping criterias are handled at the orchestration level rather than inside each expert module. \\In practice, the loop can stop when :
+\begin{itemize}
+	\item A maximum number of iterations is reached
+	\item No valid candidates survive the chemistry gate
+	\item The optimization objective is considered stable enough according to user-configured run settings (for example fixed Top-$K$, batch size, and iteration budget)
+	%TODO UPDATE APRES LA PR DE L'ORCHESTRATOR
+\end{itemize}
+This implementation allows reproducible exepimentations : changing run behavior only requires updating orchestrator-level parameters, there is no need to change the experts.
+This agent also provides traceability by recording round-wise pipeline events and outcomes:
+\begin{itemize}
+	\item Input settings
+	\item Filtered populations
+	\item Expert scores
+	\item Selected candidates
+	%TODO UPDATE APRES LA PR DE L'ORCHESTRATOR
+\end{itemize}
+This log-centric design makes the optimization path auditable from end to end: one can reconstruct why a peptide was retained or discarded at a given step, compare runs under different settings, and support post-hoc analysis of convergence behavior and failure cases.
 
 \subsection{Generator Agent}\label{subsec:designer}
 TODO: Describe how this agent generates candidates (prompting strategies, templates, mutation/crossover operators)[cite: 15].
 
-\subsection{Chemistry Agent (Constraints)}\label{subsec:chemistry}
-The Chemistry Agent serves as a deterministic filter in the pipeline, tasked with bridging the gap between peptide sequences (text) and peptide molecules (physical entities). While the Generator Agent operates in a stochastic linguistic space, the Chemistry Agent enforces strict physicochemical laws and valid chemical syntax. Its role is pivotal for translational success, ensuring that generated sequences are not only biologically active but also chemically viable and developable.
+\subsection{Chemistry Agent}\label{subsec:chemistry}
+The Chemistry Agent is the deterministic constraint-and-scoring stage of the pipeline. At a global level, it receives peptide sequences from the generator, evaluates them against user-defined physicochemical targets, and returns both a feasibility decision and a quantitative score used downstream by the orchestrator. The behavior of this agent is driven by a configurable target profile (ranges, target values, optional weights, and pH), which allows the same workflow to be reused under different experimental objectives.
 
-The agent's workflow is structured around three key scientific objectives:
-\\
+Its workflow can be summarized through three complementary functions:
 
-\textbf{1. Sanitization}
-
+\noindent\textbf{1. Sanitization :}
 Generative models can hallucinate sequences that are syntactically correct but chemically invalid or unstable. The Chemistry Agent goes beyond simple string matching by attempting to instantiate a molecular graph for each sequence using the RDKit framework.
 This process involves a full sanitization step: checking valence rules, aromaticity, and atom consistency. Any sequence that fails to convert into a valid RDKit Mol object is immediately discarded as a chemical syntax error. This ensures that downstream agents only process realizable matter.
 
-\textbf{2. Multidimensional Property Profiling}
+\medskip
+\noindent\textbf{2. Multidimensional Property Profiling :}
+To characterize developability, the agent computes a configurable set of descriptors from two complementary sources: peptide-centric properties (length, net charge at chosen pH, isoelectric point, hydrophobicity, cationicity) and molecule-centric properties (notably RDKit-based \(\log P\)). This mixed profile lets the orchestrator compare candidates in a unified physicochemical space.
 
-To estimate the "drug-likeness" and stability of the peptides, the agent computes a comprehensive vector of molecular descriptors. We utilize a hybrid approach combining RDKit descriptors and the peptides python library to cover distinct aspects of developability:
-
-\textbf{3. Quantitative Scoring and Adaptive Filtering}
-
-Unlike simple binary classifiers, the agent implements a continuous scoring function to rank candidates based on their proximity to a ``Target Product Profile'' (TPP). For each property $i$ with value $v_i$ and target $t_i$, a weighted distance score is computed.
-
-% \textbf{Structural Serialization and Analysis (SDF Generation)}
-
-% To facilitate interoperability with downstream chemoinformatics workflows and allow for human-in-the-loop inspection, the agent acts as a serializer, exporting validated candidates as industry-standard Structure-Data Files (SDF).
-% Conversion from difference internal string representation to a usable chemical graph involves generating 2D spatial coordinates via the \texttt{rdDepictor} engine. Crucially, this step does not merely save the molecular geometry (connection table). The agent enriches the SDF file by embedding the calculated physicochemical profile directly into the data block of each molecule.
-% As evidenced by the generated artifacts (e.g., \emph{ACDE.sdf}), key descriptors such as Molecular Weight, $\log P$, Hydrophobicity, and specific pH-dependent charges (stored as tags like \texttt{<net\_charge\_pH5\_5>}) are encapsulated with the structure. This self-contained format enables researchers to visualize the peptide backbone topology while simultaneously filtering candidates based on quantitative properties using standard visualization software (e.g., DataWarrior, PyMOL), effectively bridging the gap between AI generation and medicinal chemistry analysis.
-% \\
-
-\textbf{Integration within the main pipeline}
+\medskip
+\noindent\textbf{3. Quantitative Scoring and Adaptive Filtering :}
+The agent assigns each candidate a continuous score based on distance to target values, with optional per-property weighting. It then applies a two-step filtering policy: first keep peptides that satisfy all hard limits, then (if too few survive) refill the population with near-miss candidates that are closest to the target profile. This adaptive mechanism prevents early pipeline collapse while preserving optimization pressure.
+\\
 
 The Chemist agent is the first called agent after the generator is used. It allows a first selection and analysis on the generated peptides list before sending them to the Biologist agent.
-Based on the strict limits provided by the user it sends back to the orchestrator scores and properties on the peptides. The whole data acts as a deterministic generated ground-truth wich can be trusted by the Biologist agent for its prediction.
+Based on the strict limits provided by the user it sends back to the orchestrator scores and properties on the peptides. From an higher-level perspective, the returned data acts as a deterministic generated ground-truth wich can be trusted by the Biologist agent for its prediction.
 
 \subsection{Biology Agent (Function \& Risk)}\label{subsec:biology}
 The Biology Agent evaluates the generated candidates and provides the biological signal used by the iterative loop. In our implementation, it is based on Meta/Facebook's Evolutionary Scale Modeling family (ESM-2) \cite{rives2021biological,esmgithub} and can be conditioned by context (for example an existing peptide reference or requested target properties).
