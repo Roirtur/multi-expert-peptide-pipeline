@@ -1,7 +1,9 @@
+from pydantic import BaseModel
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 import logging
 
+    
 class BaseChemist(ABC):
     """
     Base class for the Chemist Agent (Constraints).
@@ -11,29 +13,28 @@ class BaseChemist(ABC):
     logger = logging.getLogger("peptide_pipeline.chemist")
 
     
-    @abstractmethod
-    def calculate_score(self, peptides: List[str]) -> List[Dict[str, float]]:
+    def __init__(self, Config: BaseModel):
+        super().__init__()
+        self.config = Config
+    
+    def validate_sequence(self, sequence: str) -> bool:
         """
-        Calculates physicochemical properties for a list of peptides.
+        Validates a peptide sequence.
         """
-        raise NotImplementedError("Subclasses must implement calculate_score method.")
+        self.logger.warning(f"Sequence {sequence} is invalid. The sequence contains non-standard amino acids. Only the 20 standard amino acids are allowed.")
+        return all(aa in self.basic_aa for aa in sequence)
 
     @abstractmethod
-    def filter_peptides(self, peptides: List[str], constraints: Dict[str, Any]) -> List[str]:
+    def get_top_filtered_peptides(self, peptides: List[str], topK: int) -> List[str]:
         """
-        Filters a list of peptides based on chemical constraints.
-            peptides: List of peptide sequences to filter.
-            constraints: Dictionary of chemical constraints to apply.
-            Returns a list of peptides that satisfy the constraints.
-            In case to few peptides are returned after filtering a minimum of x% peptides will be returned based on their score (score is calculated by the target and limit disance)
+        Returns the top K peptides filtered if any filter is applied.
         """
-        raise NotImplementedError("Subclasses must implement filter_peptides method.")
+        raise NotImplementedError("Subclasses must implement get_top_filtered_peptides method.")
 
     @abstractmethod
-    def evaluate_peptide(self, peptide: str, config: Dict[str, Any]) -> Dict[str, float]:
+    def evaluate_peptides(self, peptides: List[str]) -> List[Dict[str, Any]]:
         """
-        Evaluates a single peptide against the provided chemical constraints and calculates a score for each property.
-        Returns a dictionary with property names as keys and their corresponding scores as values.
-        Also returns a boolean indicating if the peptide is within all limits or not.
+        Evaluates a list of peptides and calculates scores for each peptide.
+        Returns a list of dictionaries, each containing property names as keys and their corresponding scores as values for each peptide.
         """
-        raise NotImplementedError("Subclasses must implement evaluate_peptide method.")
+        raise NotImplementedError("Subclasses must implement evaluate_peptides method.")
