@@ -139,7 +139,7 @@ async def fetch_batch_details(session, peptides_list):
     results = await asyncio.gather(*tasks)
     return results
 
-async def extract_generative_ai_dataset_async(limit=5000, batch_size=1000, output_file='ai_training_peptides.json'):
+async def extract_generative_ai_dataset_async(limit=5000, batch_size=1000, output_file='training_data.json'):
     SEARCH_URL = "https://dbaasp.org/peptides"
     
     final_data = []
@@ -220,7 +220,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fetch peptide data with physicochemical calculations (Async)")
     parser.add_argument("--limit", type=int, default=5000, help="Total number of peptides to fetch")
     parser.add_argument("--batch-size", type=int, default=1000, help="Search batch size")
-    parser.add_argument("--output", type=str, default="ai_training_peptides.json", help="Output JSON file")
+    parser.add_argument("--output", type=str, default="training_data.json", help="Output JSON file")
 
     args = parser.parse_args()
 
