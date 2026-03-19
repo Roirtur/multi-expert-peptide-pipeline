@@ -26,6 +26,3 @@ class BaseOrchestrator:
     ) -> List[Dict[str, Any]]:
         raise NotImplementedError("Subclasses must implement run with orchestrator loop logic.")
 
-    def get_metrics(self) -> Dict[str, Any]:
-        raise NotImplementedError("Subclasses must implement get_metrics.")
-

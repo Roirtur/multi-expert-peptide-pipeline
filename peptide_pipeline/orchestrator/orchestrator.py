@@ -9,10 +9,6 @@ from peptide_pipeline.orchestrator.base import BaseOrchestrator
 class Orchestrator(BaseOrchestrator):
     def __init__(self, generator: BaseGenerator, chemist: BaseChemist, biologist: BaseBiologist):
         super().__init__(generator, chemist, biologist)
-        self.metrics: Dict[str, Any] = {}
-
-    def get_metrics(self) -> Dict[str, Any]:
-        return self.metrics
 
     def _safe_float(self, value: Any, default: float = 0.0) -> float:
         try:
@@ -125,18 +121,6 @@ class Orchestrator(BaseOrchestrator):
         final_target: Optional[Dict[str, Any]] = None,
         random_parent_count: int = 4,
     ) -> List[Dict[str, Any]]:
-        self.metrics = {
-            "params": {
-                "nb_iterations": nb_iterations,
-                "nb_peptides": nb_peptides,
-                "top_k": top_k,
-                "exploration_rate": exploration_rate,
-                "random_parent_count": random_parent_count,
-            },
-            "iterations": [],
-            "summary": {},
-        }
-
         if final_target is None:
             final_target = self._infer_target_from_chemist_config()
             if final_target:
@@ -165,7 +149,6 @@ class Orchestrator(BaseOrchestrator):
                     )
                 candidates = self.generator.generate_peptides(count=nb_peptides, constraints=base_constraints)
                 parent_mode = "target_only"
-                parent_sequences: List[str] = []
             else:
                 if not global_pool:
                     self.logger.warning(
@@ -173,7 +156,6 @@ class Orchestrator(BaseOrchestrator):
                     )
                     candidates = self.generator.generate_peptides(count=nb_peptides, constraints=base_constraints)
                     parent_mode = "fallback_target_only"
-                    parent_sequences = []
                 else:
                     effective_parent_count = max(1, min(random_parent_count, len(global_pool), nb_peptides))
                     if exploration_hit:
@@ -182,8 +164,6 @@ class Orchestrator(BaseOrchestrator):
                     else:
                         selected_parents = global_pool[:effective_parent_count]
                         parent_mode = "exploitation_top"
-
-                    parent_sequences = [p["peptide"] for p in selected_parents]
 
                     base_batch = nb_peptides // effective_parent_count
                     remainder = nb_peptides % effective_parent_count
@@ -204,45 +184,11 @@ class Orchestrator(BaseOrchestrator):
             generated_count = len(candidates)
             if generated_count == 0:
                 self.logger.warning(f"Iteration {iteration_idx}: Generator returned no candidates.")
-                self.metrics["iterations"].append(
-                    {
-                        "iteration": iteration_idx,
-                        "generation_mode": parent_mode,
-                        "exploration_hit": exploration_hit,
-                        "parents_used": parent_sequences,
-                        "generated_count": 0,
-                        "chemist_evaluated": 0,
-                        "in_limits_count": 0,
-                        "off_limits_count": 0,
-                        "trimmed_count": 0,
-                        "selected_for_biology": 0,
-                        "best_combined_score": 0.0,
-                        "avg_combined_score": 0.0,
-                        "global_unique_count": len(global_best_by_sequence),
-                    }
-                )
                 continue
 
             chemist_results = self.chemist.evaluate_peptides(candidates)
             if not chemist_results:
                 self.logger.warning(f"Iteration {iteration_idx}: Chemist returned no evaluable candidates.")
-                self.metrics["iterations"].append(
-                    {
-                        "iteration": iteration_idx,
-                        "generation_mode": parent_mode,
-                        "exploration_hit": exploration_hit,
-                        "parents_used": parent_sequences,
-                        "generated_count": generated_count,
-                        "chemist_evaluated": 0,
-                        "in_limits_count": 0,
-                        "off_limits_count": generated_count,
-                        "trimmed_count": generated_count,
-                        "selected_for_biology": 0,
-                        "best_combined_score": 0.0,
-                        "avg_combined_score": 0.0,
-                        "global_unique_count": len(global_best_by_sequence),
-                    }
-                )
                 continue
 
             in_limit_candidates = [c for c in chemist_results if bool(c.get("in_limits", False))]
@@ -258,23 +204,6 @@ class Orchestrator(BaseOrchestrator):
 
             if not valid_candidates:
                 self.logger.warning(f"Iteration {iteration_idx}: No valid sequences after chemist filtering.")
-                self.metrics["iterations"].append(
-                    {
-                        "iteration": iteration_idx,
-                        "generation_mode": parent_mode,
-                        "exploration_hit": exploration_hit,
-                        "parents_used": parent_sequences,
-                        "generated_count": generated_count,
-                        "chemist_evaluated": len(chemist_results),
-                        "in_limits_count": len(in_limit_candidates),
-                        "off_limits_count": len(chemist_results) - len(in_limit_candidates),
-                        "trimmed_count": generated_count - len(in_limit_candidates),
-                        "selected_for_biology": 0,
-                        "best_combined_score": 0.0,
-                        "avg_combined_score": 0.0,
-                        "global_unique_count": len(global_best_by_sequence),
-                    }
-                )
                 continue
 
             bio_context = None
@@ -322,38 +251,14 @@ class Orchestrator(BaseOrchestrator):
             )
 
             best_combined = iteration_results[0]["combined_score"] if iteration_results else 0.0
-            avg_combined = (
-                sum(r["combined_score"] for r in iteration_results) / len(iteration_results)
-                if iteration_results
-                else 0.0
-            )
 
             in_limits_count = len(in_limit_candidates)
             off_limits_count = len(chemist_results) - in_limits_count
-            trimmed_count = generated_count - in_limits_count
 
             self.logger.info(
                 f"Iteration {iteration_idx}: mode={parent_mode}, generated={generated_count}, "
                 f"in_limits={in_limits_count}, off_limits={off_limits_count}, "
                 f"best_combined={best_combined:.4f}, global_unique={len(global_pool)}"
-            )
-
-            self.metrics["iterations"].append(
-                {
-                    "iteration": iteration_idx,
-                    "generation_mode": parent_mode,
-                    "exploration_hit": exploration_hit,
-                    "parents_used": parent_sequences,
-                    "generated_count": generated_count,
-                    "chemist_evaluated": len(chemist_results),
-                    "in_limits_count": in_limits_count,
-                    "off_limits_count": off_limits_count,
-                    "trimmed_count": trimmed_count,
-                    "selected_for_biology": len(valid_candidates),
-                    "best_combined_score": best_combined,
-                    "avg_combined_score": avg_combined,
-                    "global_unique_count": len(global_best_by_sequence),
-                }
             )
 
         final_ranking = sorted(
@@ -363,18 +268,6 @@ class Orchestrator(BaseOrchestrator):
         )
 
         final_top_k = final_ranking[:top_k]
-
-        self.metrics["summary"] = {
-            "total_iterations": nb_iterations,
-            "global_unique_peptides": len(global_best_by_sequence),
-            "final_top_k_count": len(final_top_k),
-            "best_final_combined_score": final_top_k[0]["combined_score"] if final_top_k else 0.0,
-            "avg_final_top_k_combined_score": (
-                sum(r["combined_score"] for r in final_top_k) / len(final_top_k)
-                if final_top_k
-                else 0.0
-            ),
-        }
 
         self.logger.info(
             f"Pipeline finished: global_unique={len(global_best_by_sequence)}, "
