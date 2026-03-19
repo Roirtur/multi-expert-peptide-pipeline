@@ -1,8 +1,9 @@
 import sys
 import os
 import json
+import re
 import pandas as pd
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from . import BaseDataLoader
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -32,6 +33,10 @@ class DataLoader(BaseDataLoader):
         auto_create_column: Optional[str] = None,
         auto_create_pattern: str = "row_{i}",
         json_lines: Optional[bool] = None,
+        fillna_defaults: Optional[Dict[str, Any]] = None,
+        normalize_sequence: bool = False,
+        sequence_column: str = "sequence",
+        keep_standard_amino_acids_only: bool = False,
         **kwargs: Any
     ) -> None:
         """
@@ -47,6 +52,10 @@ class DataLoader(BaseDataLoader):
             * True  => parse as JSONL
             * False => parse as standard JSON
             * None  => try both + manual fallback
+                - fillna_defaults: dictionary of default values used to replace NaN/null values.
+                - normalize_sequence: if True, strips spaces and uppercases `sequence_column`.
+                - keep_standard_amino_acids_only: if True, keep only rows where `sequence_column`
+                    contains standard amino acids.
         """
         try:
             if not os.path.isabs(source):
@@ -93,6 +102,30 @@ class DataLoader(BaseDataLoader):
                 if missing_requested:
                     raise ValueError(f"Requested columns not found: {missing_requested}")
                 self.data = self.data[columns]
+
+            if fillna_defaults:
+                for col, value in fillna_defaults.items():
+                    if col in self.data.columns:
+                        self.data[col] = self.data[col].fillna(value)
+
+            # Optional sequence normalization/cleanup.
+            if normalize_sequence and sequence_column in self.data.columns:
+                self.data[sequence_column] = (
+                    self.data[sequence_column]
+                    .astype(str)
+                    .str.replace(" ", "", regex=False)
+                    .str.upper()
+                )
+
+            if keep_standard_amino_acids_only and sequence_column in self.data.columns:
+                self.data = self.data[
+                    self.data[sequence_column].str.fullmatch(
+                        rf"[{re.escape(AMINO_ACIDS)}]+",
+                        na=False,
+                    )
+                ]
+
+            self.data = self.data.reset_index(drop=True)
 
             self.logger.info(f"Data loaded successfully from {source}. Total records: {len(self.data)}")
 

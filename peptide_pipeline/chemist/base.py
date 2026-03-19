@@ -21,8 +21,13 @@ class BaseChemist(ABC):
         """
         Validates a peptide sequence.
         """
-        self.logger.warning(f"Sequence {sequence} is invalid. The sequence contains non-standard amino acids. Only the 20 standard amino acids are allowed.")
-        return all(aa in self.basic_aa for aa in sequence)
+        is_valid = all(aa in self.basic_aa for aa in sequence)
+        if not is_valid:
+            self.logger.warning(
+                f"Sequence {sequence} is invalid. The sequence contains non-standard amino acids. "
+                "Only the 20 standard amino acids are allowed."
+            )
+        return is_valid
 
     @abstractmethod
     def get_top_filtered_peptides(self, peptides: List[str], topK: int) -> List[str]:
