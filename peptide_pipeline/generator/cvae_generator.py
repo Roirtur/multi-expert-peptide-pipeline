@@ -66,6 +66,10 @@ class CVAEGenerator(BaseGenerator):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.to(self.device)
 
+    def _current_device(self) -> torch.device:
+        """Return the actual device currently used by model parameters."""
+        return next(self.parameters()).device
+
     def _reparameterize(self, mu: torch.Tensor, log_var: torch.Tensor) -> torch.Tensor:
         std = torch.exp(0.5 * log_var)
         eps = torch.randn_like(std)
@@ -80,12 +84,14 @@ class CVAEGenerator(BaseGenerator):
 
     def generate_peptides(self, count, constraints=None, temperature=1.0):
         self.eval()
+        device = self._current_device()
+        self.device = device
         with torch.no_grad():
-            z = torch.randn(count, self.latent_dim, device=self.device)
-            y = self._constraints_to_condition_tensor(constraints, count, device=self.device)
+            z = torch.randn(count, self.latent_dim, device=device)
+            y = self._constraints_to_condition_tensor(constraints, count, device=device)
 
             target_length = self._extract_target_length(constraints)
-            sampled_lengths = torch.full((count,), target_length, device=self.device, dtype=torch.long)
+            sampled_lengths = torch.full((count,), target_length, device=device, dtype=torch.long)
 
             logits = self.decoder(torch.cat([z, y], dim=-1))
             logits = logits.view(count, self.max_len, self.vocab_size)
@@ -108,6 +114,8 @@ class CVAEGenerator(BaseGenerator):
 
     def train_model(self, data, conditions, lengths, epochs=300, batch_size=64, lr=1e-3, kl_anneal_epochs=100):
         self.train()
+        device = self._current_device()
+        self.device = device
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
         dataset = TensorDataset(data, conditions, lengths)
@@ -119,7 +127,7 @@ class CVAEGenerator(BaseGenerator):
             epoch_kl = 0.0
 
             for batch in dataloader:
-                x, y, lengths = batch[0].to(self.device), batch[1].to(self.device), batch[2].to(self.device)
+                x, y, lengths = batch[0].to(device), batch[1].to(device), batch[2].to(device)
                 x_recon, mu, log_var = self.forward(x, y)
 
                 recon_logits = x_recon.view(-1, self.max_len, self.vocab_size)
@@ -132,7 +140,7 @@ class CVAEGenerator(BaseGenerator):
                 ).view(-1, self.max_len)
 
                 # mask out PAD positions
-                pos = torch.arange(self.max_len, device=self.device).unsqueeze(0)    # [1, L]
+                pos = torch.arange(self.max_len, device=device).unsqueeze(0)    # [1, L]
                 mask = (pos < lengths.unsqueeze(1)).float()                          # [B, L]
                 recon_loss = (per_tok * mask).sum() / mask.sum().clamp_min(1.0)
 
@@ -239,5 +247,7 @@ class CVAEGenerator(BaseGenerator):
         torch.save(self.state_dict(), path)
 
     def load_model(self, path: str) -> None:
-        self.load_state_dict(torch.load(path, map_location=self.device))
-        self.to(self.device)
+        device = self._current_device()
+        self.load_state_dict(torch.load(path, map_location=device))
+        self.to(device)
+        self.device = device
