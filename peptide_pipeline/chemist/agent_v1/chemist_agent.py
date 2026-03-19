@@ -48,6 +48,48 @@ class ChemistAgent(BaseChemist):
 
         return properties, distance_from_target, in_limits
 
+    def _score_property(self, peptide_value: float, config_constraint: RangeTarget) -> float:
+        """
+        Score a single property based on distance from target with exponential decay.
+        Returns a score between 0 and 1, where:
+        - Score is 0 if the value is outside acceptable limits
+        - Score is based on distance decay from target if within limits
+        - Decay is normalized using the acceptable range around the target
+        """
+        # Check if within limits
+        if config_constraint.min is not None and peptide_value < config_constraint.min:
+            return 0.0
+        if config_constraint.max is not None and peptide_value > config_constraint.max:
+            return 0.0
+        
+        # If no target defined, cannot score
+        if config_constraint.target is None:
+            return 1.0
+        
+        # Calculate distance from target
+        distance = abs(peptide_value - config_constraint.target)
+        
+        # Calculate max acceptable distance (range from target to furthest limit)
+        max_distance = 0.0
+        if config_constraint.min is not None:
+            max_distance = max(max_distance, abs(config_constraint.target - config_constraint.min))
+        if config_constraint.max is not None:
+            max_distance = max(max_distance, abs(config_constraint.target - config_constraint.max))
+        
+        # If at target, return perfect score
+        if distance == 0:
+            return 1.0
+        
+        # If max_distance is 0 (target equals both min and max), return 1
+        if max_distance == 0:
+            return 1.0
+        
+        # Normalize distance to [0, 1] range and apply exponential decay
+        normalized_distance = distance / max_distance
+        score = float(exp(-normalized_distance))
+        
+        return score
+
     def _analyze_peptide(self, peptide: str) -> Dict[str, object]:
         properties, distance_from_target, in_limits = self._calculate_properties(peptide)
         self.logger.debug(f"Analyzed peptide: {peptide}, Properties: {properties}, Distance from target: {distance_from_target}, In limits: {in_limits}")
@@ -61,9 +103,12 @@ class ChemistAgent(BaseChemist):
     def evaluate_peptides(self, peptides: List[str]) -> List[Dict[str, object]]:
         """
         Evaluates a list of peptides against the provided chemical constraints and calculates scores for each property.
-        Returns a list of dictionaries, each containing property names as keys and their corresponding scores as values for each peptide.
+        Scores are calculated per-property based on distance from target with decay, normalized within property limits.
+        Scores are comparable across different batches/queries.
+        Returns a list of dictionaries, each containing property scores and an overall weighted score.
         Also includes a boolean indicating if each peptide is within all limits or not.
         """
+        # Validate peptides
         for peptide in peptides:
             if not self.validate_sequence(peptide):
                 self.logger.warning(f"Peptide '{peptide}' is invalid and will be skipped.")
@@ -73,74 +118,53 @@ class ChemistAgent(BaseChemist):
 
         analyzed_peptides = {peptide: self._analyze_peptide(peptide) for peptide in peptides}
 
-        # list of properties "valid" for the config (not None) and not ph
+        # List of properties valid for the config (not None)
         valid_properties = [
             prop_name
             for prop_name in PROPERTY_REGISTRY.keys()
             if getattr(self.config, prop_name) is not None
         ]
 
-        # Track overall weighted scores to avoid separate iterations
-        overall_scores = {peptide: 0.0 for peptide in analyzed_peptides}
-
-        # Calculate z-scores for each property and accumulate weighted scores
-        for name in valid_properties:
-            # Get pairs of peptide with distance from target for property "name"
-            pairs = [
-                (peptide, result["distance_from_target"][name])
-                for peptide, result in analyzed_peptides.items()
-                if name in result["distance_from_target"]
-            ]
-            if not pairs:
-                continue
-
-            # Calculate min and max distances for this property
-            values = [value for _, value in pairs]
-            min_val = min(values)
-            max_val = max(values)
-
-            # Get weight once per property for efficiency
-            config_property = getattr(self.config, name)
-            weight = config_property.weight if config_property is not None and config_property.weight is not None else 1.0
-
-            # Calculate normalized distance and accumulate weighted score
-            for peptide, value in pairs:
-                z_score = (value - min_val) / (max_val - min_val) if max_val != min_val else 0.0
-                
-                # Initialize norm_score on first use
-                if "norm_score" not in analyzed_peptides[peptide]:
-                    analyzed_peptides[peptide]["norm_score"] = {}
-                analyzed_peptides[peptide]["norm_score"][name] = float(z_score)
-                
-                # Accumulate weighted score
-                overall_scores[peptide] += z_score * weight
-
-        # Normalize overall scores and build final output in a single pass
-        overall_values = list(overall_scores.values())
-        if overall_values:
-            min_overall = min(overall_values)
-            max_overall = max(overall_values)
-        else:
-            min_overall = max_overall = 0.0
-
         scored_peptides = []
         for peptide in analyzed_peptides.keys():
             result = analyzed_peptides[peptide]
-            # Normalize score to [0, 1] range where 1 is best (lowest normalized score)
-            if max_overall == min_overall:
-                score = 1.0
-            else:
-                overall_score = overall_scores[peptide]
-                score = 1.0 - ((overall_score - min_overall) / (max_overall - min_overall))
+            properties = result["properties"]
+            overall_score = 0.0
+            property_scores = {}
+
+            # Score each property independently
+            for prop_name in valid_properties:
+                if prop_name not in properties:
+                    self.logger.warning(f"Property '{prop_name}' was expected but not calculated for peptide '{peptide}'. Skipping this property for scoring.")
+                    continue
+                
+                peptide_value = properties[prop_name]
+                config_constraint = getattr(self.config, prop_name)
+                
+                # Get property score using distance decay method
+                prop_score = self._score_property(peptide_value, config_constraint)
+                property_scores[prop_name] = prop_score
+                
+                # Get weight for this property
+                weight = config_constraint.weight if config_constraint.weight is not None else 1.0
+                
+                # Accumulate weighted score
+                overall_score += prop_score * weight
+            
+            # Normalize overall score by number of properties (to keep it in reasonable range)
+            num_properties = len(property_scores) if property_scores else 1
+            normalized_overall_score = overall_score / num_properties
             
             scored_peptides.append(
                 {
                     "sequence": peptide,
                     "properties": result["properties"],
-                    "score": score,
+                    "property_scores": property_scores,
+                    "score": normalized_overall_score,
                     "in_limits": result["in_limits"],
                 }
             )
+        self.logger.debug(f"Evaluated peptides with scores: {scored_peptides}")
         return scored_peptides
     
     def get_top_filtered_peptides(self, peptides: List[str], topK: int) -> List[str]:
