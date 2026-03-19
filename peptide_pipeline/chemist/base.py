@@ -1,32 +1,40 @@
+from pydantic import BaseModel
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 import logging
 
+    
 class BaseChemist(ABC):
     """
     Base class for the Chemist Agent (Constraints).
     Responsible for checking chemical validity and feasibility.
     """
-
+    basic_aa = {'A','C','D','E','F','G','H','I','K','L','M','N','P','Q','R','S','T','V','W','Y'}
     logger = logging.getLogger("peptide_pipeline.chemist")
 
-    @abstractmethod
-    def check_validity(self, peptides: List[str]) -> List[bool]:
+    
+    def __init__(self, Config: BaseModel):
+        super().__init__()
+        self.config = Config
+    
+    def validate_sequence(self, sequence: str) -> bool:
         """
-        Checks if a list of peptide sequences satisfy validity rules.
+        Validates a peptide sequence.
         """
-        raise NotImplementedError("Subclasses must implement check_validity method.")
+        self.logger.warning(f"Sequence {sequence} is invalid. The sequence contains non-standard amino acids. Only the 20 standard amino acids are allowed.")
+        return all(aa in self.basic_aa for aa in sequence)
 
     @abstractmethod
-    def calculate_properties(self, peptides: List[str]) -> List[Dict[str, float]]:
+    def get_top_filtered_peptides(self, peptides: List[str], topK: int) -> List[str]:
         """
-        Calculates physicochemical properties for a list of peptides.
+        Returns the top K peptides filtered if any filter is applied.
         """
-        raise NotImplementedError("Subclasses must implement calculate_properties method.")
+        raise NotImplementedError("Subclasses must implement get_top_filtered_peptides method.")
 
-    def filter_peptides(self, peptides: List[str], constraints: Dict[str, Any]) -> List[str]:
+    @abstractmethod
+    def evaluate_peptides(self, peptides: List[str]) -> List[Dict[str, Any]]:
         """
-        Filters a list of peptides based on chemical constraints.
+        Evaluates a list of peptides and calculates scores for each peptide.
+        Returns a list of dictionaries, each containing property names as keys and their corresponding scores as values for each peptide.
         """
-        raise NotImplementedError("Subclasses must implement filter_peptides method.")
-
+        raise NotImplementedError("Subclasses must implement evaluate_peptides method.")
