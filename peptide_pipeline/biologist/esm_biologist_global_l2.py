@@ -4,17 +4,19 @@ import os
 from typing import List, Optional
 
 import torch
-import torch.nn.functional as F
 from transformers import AutoModel, AutoTokenizer
 
 from peptide_pipeline.biologist.base import BaseBiologist
 
 _DEFAULT_MODEL = "facebook/esm2_t12_35M_UR50D"
 
-class ESMBiologistZscore(BaseBiologist):
+class ESMBiologistGlobalL2(BaseBiologist):
     """
-    Biologist agent that scores candidate peptides using Z-score normalized 
-    Euclidean distance for maximum contrast in peptide clusters.
+    Biologist agent that scores candidate peptides using a global,
+    batch-independent exponential transform of Euclidean distance to a reference peptide.
+
+    Score formula: score = exp(-||embedding - reference||_2 / temperature)
+    This avoids per-batch normalization and makes scores comparable across runs.
     """
 
     def __init__(
@@ -24,11 +26,13 @@ class ESMBiologistZscore(BaseBiologist):
         device: Optional[str] = None,
         hf_token: Optional[str] = None,
         batch_size: int = 32,
+        score_temperature: float = 8.0,
     ) -> None:
         self.reference_peptide = reference_peptide
         self.model_name = model_name
         self.batch_size = batch_size
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.score_temperature = max(float(score_temperature), 1e-6)
 
         token = hf_token or os.environ.get("HF_TOKEN")
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, token=token)
@@ -72,21 +76,11 @@ class ESMBiologistZscore(BaseBiologist):
         candidate_embeddings = self._embed_sequences(peptides)
         ref = self._reference_embedding.unsqueeze(0)
 
-        # Euclidean Distance
+        # Absolute Euclidean distance to reference embedding.
         distances = torch.norm(candidate_embeddings - ref, p=2, dim=1)
 
-        # Z-Score Normalization
-        if len(distances) > 1:
-            mu = distances.mean()
-            std = distances.std().clamp(min=1e-6)
-            
-            z_scores = (distances - mu) / std
-            
-            # 0-1 scale using a Sigmoid
-            scores = torch.sigmoid(-z_scores) 
-        else:
-            # Fallback for single peptide comparison
-            scores = 1.0 / (1.0 + distances)
+        # Global, batch-independent mapping with tunable compression.
+        scores = torch.exp(-distances / self.score_temperature)
 
         return scores.tolist()
 
@@ -100,4 +94,7 @@ class ESMBiologistZscore(BaseBiologist):
         return self.score_peptides(peptides)
 
     def __repr__(self) -> str:
-        return f"ESMBiologistZscore(model='{self.model_name}', layer=6, scoring='Z-Score L2')"
+        return (
+            f"ESMBiologistGlobalL2(model='{self.model_name}', layer=6, "
+            f"scoring='Exp(-L2/tau)', tau={self.score_temperature:.3f})"
+        )
