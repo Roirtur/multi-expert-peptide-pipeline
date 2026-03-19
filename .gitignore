@@ -223,3 +223,7 @@ report/.log
 report/.synctex.gz
 
 peptide_pipeline/generator/*.pth
+
+experiments/*.pkl
+experiments/*.pth
+experiments/*.csv
