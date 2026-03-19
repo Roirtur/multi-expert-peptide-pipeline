@@ -26,8 +26,6 @@ def compute_isoelectric_point(peptide: str) -> float:
 def compute_hydrophobicity(peptide: str) -> float:
     return pp.Peptide(peptide).hydrophobicity()
 
-def compute_cathionicity(peptide: str) -> float:
-    return pp.Peptide(peptide).cathionicity()
 
 
 @dataclass
@@ -97,14 +95,5 @@ PROPERTY_REGISTRY = {
         default_min=-5,
         default_max=5,
         default_target=0,
-    ),
-    "cathionicity": PropertyDefinition(
-        name="cathionicity",
-        function=compute_cathionicity,
-        description="Cathionicity (cationic character)",
-        requires_ph=False,
-        default_min=0,
-        default_max=1,
-        default_target=0.5,
     ),
 }
