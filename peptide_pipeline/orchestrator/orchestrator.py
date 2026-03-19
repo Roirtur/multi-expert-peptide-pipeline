@@ -16,6 +16,10 @@ class Orchestrator(BaseOrchestrator):
             exploration_rate: float = 0.1,
             initial_peptide: Optional[str] = None) -> List[Dict[str, Any]]:
         
+        """
+        Main Orchestrator Agent Loop, responsible for maintaining the whole pipeline iteration process
+        """
+        
         results: List[Dict[str, Any]] = []
 
         if initial_peptide:
@@ -29,21 +33,23 @@ class Orchestrator(BaseOrchestrator):
         self.logger.info(f"Running for {nb_iterations} iterations")
 
         for i in range(nb_iterations):
-            #chemist agent
+
+            #get peptides properties and filter the invalid ones at the same time
             chemist_results = self.chemist.evaluate_peptides(candidates)
             if not chemist_results:
                 self.logger.warning(f"Iteration {i+1}: No chemically evaluable candidates found. Restarting random generation.")
                 candidates = self.generator.generate_peptides(count=nb_peptides)
                 continue
 
-            in_limit_candidates = [c for c in chemist_results if c.get("in_limits", False)]
-            selected_candidates = in_limit_candidates if in_limit_candidates else chemist_results
+            in_limit_candidates = [c for c in chemist_results if c.get("in_limits") is True]
+            selected_candidates = in_limit_candidates if in_limit_candidates else chemist_results                
 
             if not in_limit_candidates:
                 self.logger.warning(
                     f"Iteration {i+1}: No candidates within chemistry limits. Falling back to out-of-limit candidates ranked by bio score."
                 )
 
+            #prepare data for bio agent
             valid_candidates = [c["sequence"] for c in selected_candidates]
             valid_props = [c.get("properties", {}) for c in selected_candidates]
             chem_scores = [float(c.get("score", 0.0)) for c in selected_candidates]
