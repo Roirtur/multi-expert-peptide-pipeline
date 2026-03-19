@@ -6,7 +6,7 @@ The Biologist module evaluates peptide candidates from a biological relevance pe
 
 Primary responsibilities:
 
-- score candidate peptides in a normalized way,
+- score candidate peptides in a consistent way,
 - estimate biological activity for a peptide batch,
 - optionally incorporate contextual biological information,
 - provide stable outputs for orchestrator ranking and filtering.
@@ -49,10 +49,11 @@ By subclassing `BaseBiologist`, you inherit:
 - Converts cosine similarity from `[-1, 1]` to `[0, 1]`.
 - Supports optional context by temporarily swapping the reference embedding.
 
-### `ESMBiologistZscore` (`peptide_pipeline/biologist/esm_biologist_zscore.py`)
+### `ESMBiologistGlobalL2` (`peptide_pipeline/biologist/esm_biologist_global_l2.py`)
 
 - Uses ESM-2 embeddings and L2 distance to a reference embedding.
-- Applies z-score normalization across batch distances, then sigmoid scaling.
+- Uses global exponential distance scoring: `score = exp(-distance / temperature)`.
+- Avoids per-batch normalization so scores remain comparable across batches.
 - Supports optional context with temporary reference replacement.
 
 ### Important Behavior Notes
