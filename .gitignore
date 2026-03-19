@@ -222,4 +222,4 @@ report/.fls
 report/.log
 report/.synctex.gz
 
-generator/*.pth
+peptide_pipeline/generator/*.pth
