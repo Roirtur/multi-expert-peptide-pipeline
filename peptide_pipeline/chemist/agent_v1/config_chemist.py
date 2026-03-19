@@ -31,4 +31,3 @@ class ChemistConfig(BaseModel):
     net_charge : Optional[RangeTarget] = None
     isoelectric_point : Optional[RangeTarget] = None
     hydrophobicity : Optional[RangeTarget] = None
-    cathionicity : Optional[RangeTarget] = None
