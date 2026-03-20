@@ -2,14 +2,14 @@
 
 ## Purpose
 
-The DataLoader module converts raw peptide datasets into validated in-memory objects that can be consumed by training and inference components.
+The DataLoader module reads raw peptide datasets and exposes them as in-memory tables for downstream training/evaluation.
 
 Primary responsibilities:
 
-- read data from a source path,
-- parse and normalize tabular or JSON content,
-- validate schema expectations,
-- expose loaded data through a stable retrieval API.
+- load dataset files from disk,
+- validate or normalize schema,
+- optionally filter/project rows and columns,
+- return loaded data through a retrieval API.
 
 Base contract: `BaseDataLoader` in `peptide_pipeline/dataloader/base.py`.
 
@@ -17,20 +17,18 @@ Base contract: `BaseDataLoader` in `peptide_pipeline/dataloader/base.py`.
 
 ## Base Contract
 
-Every dataloader implementation must inherit from `BaseDataLoader` and implement the following methods.
+Every implementation must inherit `BaseDataLoader` and implement:
 
 ### `load_data(self, source: str, **kwargs) -> Any`
 
-- Loads and preprocesses dataset content from `source`.
-- Accepts loader-specific options through `**kwargs`.
-- Stores processed data internally.
-- Returns a loaded object (contract-level expectation).
+- Loads and preprocesses data from `source`.
+- Stores loaded data in internal state.
+- Contract type is `Any`.
 
 ### `get_data(self) -> Any`
 
-- Returns the currently loaded data object.
-- Must fail explicitly when called before loading.
-- Must avoid hidden side effects.
+- Returns the currently loaded dataset.
+- Must fail clearly if data was never loaded.
 
 ---
 
@@ -38,42 +36,50 @@ Every dataloader implementation must inherit from `BaseDataLoader` and implement
 
 By subclassing `BaseDataLoader`, you inherit:
 
-- `logger` configured under `"peptide_pipeline.dataloader"`.
+- class-level logger named `"peptide_pipeline.dataloader"`.
 
 ---
 
 ## Current Implementations In This Repository
 
-### `dataloader.py::DataLoader`
+### `dataloader.py::DataLoader` (CSV loader)
 
-- CSV-oriented loader using `pandas.read_csv`.
-- Validates presence of `NAME` and `SEQUENCE` columns.
-- Supports selecting a subset of columns via `columns`.
-- Stores loaded data in `self.data` and exposes it via `get_data`.
+- Reads CSV with `pandas.read_csv(source)`.
+- Requires columns `SEQUENCE` and `NAME`.
+- If `columns` is `None`, defaults to `['NAME', 'SEQUENCE']`.
+- Validates requested `columns` and keeps only those columns.
+- Stores result in `self.data` (`pandas.DataFrame`).
 
-### `dataloader_json.py::DataLoader`
+### `dataloader_json.py::DataLoader` (JSON/JSONL loader)
 
-- JSON-oriented loader supporting standard JSON and JSON Lines.
-- Supports optional `required_columns`, `rename_map`, and `auto_create_column`.
-- Supports optional projection through `columns`.
-- Stores loaded data in `self.data` and exposes it via `get_data`.
+- Resolves relative `source` path against project root.
+- Supports:
+  - `json_lines` mode (`True`, `False`, or auto-detect),
+  - `rename_map`,
+  - `required_columns`,
+  - `auto_create_column` with `auto_create_pattern`,
+  - column projection via `columns`,
+  - `fillna_defaults`,
+  - sequence normalization (`normalize_sequence`, `sequence_column`),
+  - standard amino-acid filtering (`keep_standard_amino_acids_only`).
+- Resets index at end with `reset_index(drop=True)`.
 
-### Important Behavior Notes
+### Important Behavior Notes (As Implemented)
 
-- Both current implementations terminate the process with `sys.exit(1)` on error.
-- Both current `load_data` implementations are annotated to return `None`, even though the abstract contract uses `-> Any`.
-- For new implementations, prefer raising explicit exceptions instead of process termination.
+- Both loaders currently return `None` from `load_data(...)` even though the abstract contract says `-> Any`.
+- Both loaders call `sys.exit(1)` on failures and when `get_data()` is called before load.
+- `dataloader.py` imports `BaseDataLoader` via `from base import BaseDataLoader` (script-style import), unlike package-style imports elsewhere.
 
 ---
 
 ## How To Add A New DataLoader
 
 1. Create a class inheriting from `BaseDataLoader`.
-2. Initialize internal storage (for example, `self.data = None`).
-3. Implement `load_data(source, **kwargs)` for one source format or one strategy.
-4. Implement `get_data()` with a clear pre-load failure mode.
+2. Initialize internal storage in `__init__` (for example `self.data = None`).
+3. Implement `load_data(source, **kwargs)` for one source type/strategy.
+4. Implement `get_data()` with explicit pre-load failure behavior.
 5. Document accepted kwargs and output schema.
-6. Add tests for valid input, invalid input, and pre-load access.
+6. Add tests for success, malformed input, missing input, and pre-load access.
 
 ---
 
@@ -90,9 +96,8 @@ class MyDataLoader(BaseDataLoader):
 
     def load_data(self, source: str, **kwargs) -> Any:
         # 1) Validate source/options
-        # 2) Read raw content
+        # 2) Read content
         # 3) Normalize schema
-        # 4) Store in self.data
         self.data = ...
         return self.data
 
@@ -106,9 +111,9 @@ class MyDataLoader(BaseDataLoader):
 
 ## Developer Checklist
 
-- `load_data` validates path and expected schema.
-- Errors are explicit and actionable.
-- `get_data` fails clearly if loading did not run.
-- Output shape and key columns are documented.
-- Tests cover success and failure paths.
+- `load_data` validates path and schema assumptions.
+- Errors are explicit and actionable (prefer exceptions over process exit).
+- `get_data` has a clear pre-load failure mode.
+- Output shape is documented (column names/types).
+- Tests cover normal and failure paths.
 
