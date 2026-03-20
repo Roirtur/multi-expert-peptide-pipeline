@@ -1,51 +1,30 @@
 """
 CVAE conditioning constraints (accepted in `constraints` dict):
 
-Each property can be provided as either:
-- scalar: `{"property": value}` (treated as min=max=value)
-- range: `{"property": {"min": x, "max": y}}`
-
-Supported properties:
-- "size": peptide length (number of residues)
-- "molecular_weight": molecular weight
-- "net_charge_pH5_5": net charge at pH 5.5
-- "isoelectric_point": isoelectric point (pI)
-- "hydrophobicity": overall hydrophobicity
-- "hydrophobic_moment": hydrophobic moment
-- "logp": partition coefficient (logP)
-- "boman_index": Boman index
-- "h_bond_donors": hydrogen-bond donor count
-- "h_bond_acceptors": hydrogen-bond acceptor count
-- "tpsa": topological polar surface area
-
-Notes:
-- Properties are defaulted to 0.0 if not provided or if invalid.
+Each property should be provided as a scalar, e.g.:
+{"size": 12, "net_charge_pH5_5": 2.0, "hydrophobicity": -0.3}
 """
-
-from itertools import count
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
-from typing import List, Optional, Dict, Any, Union
-import numpy as np
-from abc import ABC
+from typing import List, Optional, Dict, Any
 from peptide_pipeline.generator.base import BaseGenerator
 
 constraints_default = {
-    "size": {"min": 5, "max": 30},
-    "molecular_weight": {"min": 500, "max": 3000},
-    "net_charge_pH5_5": {"min": -5, "max": 5},
-    "isoelectric_point": {"min": 3, "max": 11},
-    "hydrophobicity": {"min": -2, "max": 2},
-    "cathionicity": {"min": -5, "max": 5},
-    "hydrophobic_moment": {"min": 0, "max": 1},
-    "logp": {"min": -3, "max": 3},
-    "boman_index": {"min": -5, "max": 5},
-    "h_bond_donors": {"min": 0, "max": 10},
-    "h_bond_acceptors": {"min": 0, "max": 10},
-    "tpsa": {"min": 0, "max": 200},
+    "size": 10.0,
+    "molecular_weight": 1500.0,
+    "net_charge_pH5_5": 0.0,
+    "isoelectric_point": 7.0,
+    "hydrophobicity": 0.0,
+    "cathionicity": 0.0,
+    "hydrophobic_moment": 0.5,
+    "logp": 0.0,
+    "boman_index": 0.0,
+    "h_bond_donors": 5.0,
+    "h_bond_acceptors": 5.0,
+    "tpsa": 100.0,
 }
 
 class CVAEGenerator(BaseGenerator):
@@ -87,6 +66,10 @@ class CVAEGenerator(BaseGenerator):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.to(self.device)
 
+    def _current_device(self) -> torch.device:
+        """Return the actual device currently used by model parameters."""
+        return next(self.parameters()).device
+
     def _reparameterize(self, mu: torch.Tensor, log_var: torch.Tensor) -> torch.Tensor:
         std = torch.exp(0.5 * log_var)
         eps = torch.randn_like(std)
@@ -101,16 +84,14 @@ class CVAEGenerator(BaseGenerator):
 
     def generate_peptides(self, count, constraints=None, temperature=1.0):
         self.eval()
+        device = self._current_device()
+        self.device = device
         with torch.no_grad():
-            z = torch.randn(count, self.latent_dim, device=self.device)
-            y = self._constraints_to_condition_tensor(constraints, count, device=self.device)
+            z = torch.randn(count, self.latent_dim, device=device)
+            y = self._constraints_to_condition_tensor(constraints, count, device=device)
 
-            size = (constraints or {}).get("size", {"min": 5, "max": self.max_len})
-            lo = int(size.get("min", 5))
-            hi = int(size.get("max", self.max_len))
-            lo = max(1, min(lo, self.max_len))
-            hi = max(lo, min(hi, self.max_len))
-            sampled_lengths = torch.randint(lo, hi + 1, (count,), device=self.device)
+            target_length = self._extract_target_length(constraints)
+            sampled_lengths = torch.full((count,), target_length, device=device, dtype=torch.long)
 
             logits = self.decoder(torch.cat([z, y], dim=-1))
             logits = logits.view(count, self.max_len, self.vocab_size)
@@ -133,6 +114,8 @@ class CVAEGenerator(BaseGenerator):
 
     def train_model(self, data, conditions, lengths, epochs=300, batch_size=64, lr=1e-3, kl_anneal_epochs=100):
         self.train()
+        device = self._current_device()
+        self.device = device
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
         dataset = TensorDataset(data, conditions, lengths)
@@ -144,7 +127,7 @@ class CVAEGenerator(BaseGenerator):
             epoch_kl = 0.0
 
             for batch in dataloader:
-                x, y, lengths = batch[0].to(self.device), batch[1].to(self.device), batch[2].to(self.device)
+                x, y, lengths = batch[0].to(device), batch[1].to(device), batch[2].to(device)
                 x_recon, mu, log_var = self.forward(x, y)
 
                 recon_logits = x_recon.view(-1, self.max_len, self.vocab_size)
@@ -157,7 +140,7 @@ class CVAEGenerator(BaseGenerator):
                 ).view(-1, self.max_len)
 
                 # mask out PAD positions
-                pos = torch.arange(self.max_len, device=self.device).unsqueeze(0)    # [1, L]
+                pos = torch.arange(self.max_len, device=device).unsqueeze(0)    # [1, L]
                 mask = (pos < lengths.unsqueeze(1)).float()                          # [B, L]
                 recon_loss = (per_tok * mask).sum() / mask.sum().clamp_min(1.0)
 
@@ -191,7 +174,7 @@ class CVAEGenerator(BaseGenerator):
 
     def _constraints_to_condition_tensor(
         self,
-        constraints: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]],
+        constraints: Optional[Dict[str, Any]],
         count: int,
         device: Optional[torch.device] = None
     ) -> torch.Tensor:
@@ -200,8 +183,7 @@ class CVAEGenerator(BaseGenerator):
 
         Behavior:
         - Starts from `constraints_default`
-        - Applies user overrides (dict or list-of-dicts)
-        - Missing properties keep default values
+        - Applies user overrides as scalar values
         """
         device = device or self.device
         cond = torch.zeros(count, self.condition_dim, dtype=torch.float32, device=device)
@@ -221,51 +203,26 @@ class CVAEGenerator(BaseGenerator):
             "tpsa",
         ]
 
-        # 1) Normalize input into a dict
-        user_constraints: Dict[str, Any] = {}
-        if isinstance(constraints, dict):
-            user_constraints = constraints
-        elif isinstance(constraints, list):
-            for row in constraints:
-                if not isinstance(row, dict):
-                    continue
-                # row format: {"property": "size", "min": 8, "max": 12} or {"property": "size", "value": 10}
-                if "property" in row:
-                    prop = row.get("property")
-                    if isinstance(prop, str):
-                        if "value" in row:
-                            user_constraints[prop] = row["value"]
-                        else:
-                            user_constraints[prop] = {
-                                "min": row.get("min"),
-                                "max": row.get("max"),
-                            }
-                else:
-                    # row format: {"size": {"min": 8, "max": 12}} or {"size": 10}
-                    user_constraints.update(row)
+        user_constraints: Dict[str, Any] = constraints or {}
 
         # 2) Start from defaults and override with user input
         encoded_values: List[float] = []
         for prop in property_order:
-            default_spec = constraints_default.get(prop, {"min": 0.0, "max": 0.0})
-            default_min = float(default_spec.get("min", 0.0))
-            default_max = float(default_spec.get("max", 0.0))
+            default_value = float(constraints_default.get(prop, 0.0))
 
             spec = user_constraints.get(prop, None)
 
-            if isinstance(spec, dict):
-                min_v = default_min if spec.get("min") is None else float(spec.get("min"))
-                max_v = default_max if spec.get("max") is None else float(spec.get("max"))
-            elif spec is None:
-                min_v, max_v = default_min, default_max
+            if spec is None:
+                value = default_value
             else:
+                if isinstance(spec, dict):
+                    raise ValueError(f"Constraint '{prop}' must be a scalar value, not a min/max dictionary.")
                 try:
                     value = float(spec)
-                    min_v, max_v = value, value
                 except (TypeError, ValueError):
-                    min_v, max_v = default_min, default_max
+                    raise ValueError(f"Constraint '{prop}' must be numeric. Got: {spec!r}")
 
-            encoded_values.extend([min_v, max_v])
+            encoded_values.append(value)
 
         vec = torch.tensor(encoded_values, dtype=torch.float32, device=device)
         usable = min(vec.numel(), self.condition_dim)
@@ -273,9 +230,24 @@ class CVAEGenerator(BaseGenerator):
 
         return cond
 
+    def _extract_target_length(self, constraints: Optional[Dict[str, Any]]) -> int:
+        """Return fixed peptide length from constraints, clamped to [1, max_len]."""
+        size_value = (constraints or {}).get("size", constraints_default["size"])
+        if isinstance(size_value, dict):
+            raise ValueError("Constraint 'size' must be a scalar value, not a min/max dictionary.")
+
+        try:
+            target = float(size_value)
+        except (TypeError, ValueError):
+            raise ValueError(f"Constraint 'size' must be numeric. Got: {size_value!r}")
+
+        return max(1, min(int(round(target)), self.max_len))
+
     def save_model(self, path: str) -> None:
         torch.save(self.state_dict(), path)
 
     def load_model(self, path: str) -> None:
-        self.load_state_dict(torch.load(path, map_location=self.device))
-        self.to(self.device)
+        device = self._current_device()
+        self.load_state_dict(torch.load(path, map_location=device))
+        self.to(device)
+        self.device = device
