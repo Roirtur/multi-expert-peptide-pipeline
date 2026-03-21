@@ -2,14 +2,14 @@
 
 ## Purpose
 
-The Chemist module evaluates peptide candidates against chemical constraints and ranks them for downstream selection.
+The Chemist module evaluates peptide candidates against configurable physicochemical constraints and produces ranked outputs.
 
 Primary responsibilities:
 
-- validate amino-acid sequence compliance,
-- compute configured physicochemical properties,
-- score candidates from distance to target constraints,
-- return ranked candidates with in-limit status.
+- validate amino-acid sequence format,
+- compute chemical properties,
+- score candidates against configured ranges/targets,
+- expose ranked candidate lists for downstream selection.
 
 Base contract: `BaseChemist` in `peptide_pipeline/chemist/base.py`.
 
@@ -17,17 +17,15 @@ Base contract: `BaseChemist` in `peptide_pipeline/chemist/base.py`.
 
 ## Base Contract
 
-Every chemist implementation must inherit from `BaseChemist` and implement the following methods.
+Every implementation must inherit `BaseChemist` and implement:
 
 ### `get_top_filtered_peptides(self, peptides: List[str], topK: int) -> List[str]`
 
-- Returns top candidates after filtering and ranking.
-- Accepts a peptide list plus a requested `topK` count.
+- Returns top-ranked peptides after evaluation/filtering.
 
 ### `evaluate_peptides(self, peptides: List[str]) -> List[Dict[str, Any]]`
 
-- Computes chemical properties and scores for each peptide.
-- Returns a structured per-peptide evaluation list.
+- Returns per-peptide evaluation records with scores/properties.
 
 ---
 
@@ -35,10 +33,10 @@ Every chemist implementation must inherit from `BaseChemist` and implement the f
 
 By subclassing `BaseChemist`, you inherit:
 
-- `basic_aa` set with 20 standard amino acids,
-- `logger` configured under `"peptide_pipeline.chemist"`,
-- `validate_sequence(sequence: str) -> bool` utility,
-- `self.config` storage initialized from a Pydantic model.
+- `basic_aa`: set of the 20 standard amino acids,
+- class-level logger named `"peptide_pipeline.chemist"`,
+- `validate_sequence(sequence)` helper,
+- `self.config` set from constructor argument.
 
 ---
 
@@ -46,43 +44,54 @@ By subclassing `BaseChemist`, you inherit:
 
 ### `ChemistAgent` (`peptide_pipeline/chemist/agent_v1/chemist_agent.py`)
 
-- Uses `ChemistConfig` and `RangeTarget` from `config_chemist.py`.
-- Computes configured properties using `PROPERTY_REGISTRY`.
-- For each peptide, derives:
-  - `properties`,
-  - `distance_from_target`,
-  - `in_limits` boolean,
-  - aggregate normalized `score`.
-- `get_top_filtered_peptides` sorts by in-limit first, then by score.
+- Uses `ChemistConfig` + `RangeTarget` from `config_chemist.py`.
+- Computes configured properties from `PROPERTY_REGISTRY`:
+  - `length`
+  - `molecular_weight`
+  - `logp`
+  - `net_charge` (pH-dependent)
+  - `isoelectric_point`
+  - `hydrophobicity`
+- For each peptide, computes:
+  - `properties`
+  - per-property score map `property_scores`
+  - aggregate score `score`
+  - boolean `in_limits`
+- Ranking in `get_top_filtered_peptides` is deterministic:
+  - in-limit first,
+  - then descending score.
 
-### Configurable Property Families
+### Configuration Schema (As Implemented)
 
-Current config supports optional constraints for:
+`ChemistConfig` supports:
 
-- `length`,
-- `molecular_weight`,
-- `logp`,
-- `net_charge`,
-- `isoelectric_point`,
-- `hydrophobicity`,
-- `cathionicity`,
-- plus global `ph`.
+- global `ph: float = 7.0`
+- optional constraints: `length`, `molecular_weight`, `logp`, `net_charge`, `isoelectric_point`, `hydrophobicity`
 
-### Important Behavior Notes
+Each constraint is a `RangeTarget` with:
 
-- `BaseChemist.get_top_filtered_peptides` is typed as `-> List[str]`, while current `ChemistAgent` returns a list of dictionaries from `evaluate_peptides` truncated to `topK`.
-- In `BaseChemist.validate_sequence`, a warning log is emitted before the boolean check, including valid sequences. This may produce noisy logs.
+- `min: float`
+- `max: float`
+- `target: float`
+- optional `weight: float = 1.0`
+
+### Important Behavior Notes (As Implemented)
+
+- `BaseChemist.get_top_filtered_peptides` is typed as `List[str]`, but `ChemistAgent.get_top_filtered_peptides` currently returns a list of dictionaries (truncated evaluated rows).
+- `evaluate_peptides` currently mutates the input list while iterating when removing invalid peptides.
+- Internal `distance_from_target` is computed in analysis helpers but is not exposed in final `evaluate_peptides` output.
+- Overall score uses weighted sum divided by number of scored properties (not by sum of weights).
 
 ---
 
 ## How To Add A New Chemist Agent
 
 1. Create a class inheriting from `BaseChemist`.
-2. Define a configuration schema (Pydantic model) for constraints.
-3. Implement `evaluate_peptides` with stable output keys and score semantics.
-4. Implement `get_top_filtered_peptides` with deterministic ranking logic.
-5. Keep invalid sequence handling explicit and non-crashing.
-6. Add tests for valid, invalid, and out-of-range peptide scenarios.
+2. Define/validate a clear configuration schema.
+3. Implement `evaluate_peptides` with stable output keys.
+4. Implement deterministic `get_top_filtered_peptides` ranking.
+5. Handle invalid sequences without mutating caller-owned inputs in-place.
+6. Add tests for boundary cases and ranking consistency.
 
 ---
 
@@ -103,19 +112,19 @@ class MyChemist(BaseChemist):
         super().__init__(config)
 
     def evaluate_peptides(self, peptides: List[str]) -> List[Dict[str, Any]]:
-        results: List[Dict[str, Any]] = []
-        for peptide in peptides:
-            if not self.validate_sequence(peptide):
+        rows: List[Dict[str, Any]] = []
+        for sequence in peptides:
+            if not self.validate_sequence(sequence):
                 continue
-            results.append(
+            rows.append(
                 {
-                    "sequence": peptide,
+                    "sequence": sequence,
                     "properties": {},
                     "score": 0.0,
                     "in_limits": True,
                 }
             )
-        return results
+        return rows
 
     def get_top_filtered_peptides(self, peptides: List[str], topK: int):
         ranked = self.evaluate_peptides(peptides)
@@ -126,8 +135,8 @@ class MyChemist(BaseChemist):
 
 ## Developer Checklist
 
-- `evaluate_peptides` returns stable, documented keys.
-- Score computation and normalization are documented.
-- `get_top_filtered_peptides` ranking logic is deterministic.
+- Output schema keys are documented and stable.
+- Score formula and normalization are explicit.
+- Ranking behavior is deterministic and test-covered.
 - Invalid sequences are handled safely.
-- Tests cover filtering, ranking, and boundary conditions.
+- Contract mismatch (`List[str]` vs list of dicts) is resolved or documented.

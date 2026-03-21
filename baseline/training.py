@@ -2,8 +2,8 @@ import json
 import torch
 import torch.optim as optim
 
-from data_handler import get_dataloader
-from model import PeptideCVAE, cvae_loss_function
+from baseline.data_handler import get_dataloader
+from baseline.model import PeptideCVAE, cvae_loss_function
 
 # default hyper params
 DEFAULT_BATCH_SIZE = 32

@@ -2,14 +2,13 @@
 
 ## Purpose
 
-The Biologist module evaluates peptide candidates from a biological relevance perspective.
+The Biologist module scores peptide candidates for biological relevance/activity proxies.
 
 Primary responsibilities:
 
-- score candidate peptides in a consistent way,
-- estimate biological activity for a peptide batch,
-- optionally incorporate contextual biological information,
-- provide stable outputs for orchestrator ranking and filtering.
+- generate one biological score per peptide,
+- support optional contextual scoring,
+- provide stable outputs for orchestrator ranking.
 
 Base contract: `BaseBiologist` in `peptide_pipeline/biologist/base.py`.
 
@@ -17,19 +16,16 @@ Base contract: `BaseBiologist` in `peptide_pipeline/biologist/base.py`.
 
 ## Base Contract
 
-Every biologist implementation must inherit from `BaseBiologist` and implement the following methods.
+Every implementation must inherit `BaseBiologist` and implement:
 
 ### `score_peptides(self, peptides: List[str]) -> List[float]`
 
-- Returns one scalar score per peptide.
-- Preserves input order in output alignment.
-- Base contract specifies normalized scores in `[0, 1]`.
+- Returns one score per peptide.
 
 ### `predict_activity(self, peptides: List[str], context: Optional[Any] = None) -> List[float]`
 
 - Returns one activity estimate per peptide.
-- Accepts optional `context` to adjust prediction behavior.
-- Preserves input-to-output mapping.
+- Accepts optional context.
 
 ---
 
@@ -37,7 +33,7 @@ Every biologist implementation must inherit from `BaseBiologist` and implement t
 
 By subclassing `BaseBiologist`, you inherit:
 
-- `logger` configured under `"peptide_pipeline.biologist"`.
+- class-level logger named `"peptide_pipeline.biologist"`.
 
 ---
 
@@ -45,32 +41,36 @@ By subclassing `BaseBiologist`, you inherit:
 
 ### `ESMBiologistCos` (`peptide_pipeline/biologist/esm_biologist_cos.py`)
 
-- Uses ESM-2 embeddings with cosine similarity against a reference peptide.
-- Converts cosine similarity from `[-1, 1]` to `[0, 1]`.
-- Supports optional context by temporarily swapping the reference embedding.
+- Loads an ESM-2 model/tokenizer from Hugging Face (`transformers`).
+- Computes mean-pooled sequence embeddings.
+- Scores with cosine similarity to a stored reference peptide embedding.
+- Maps cosine score from `[-1, 1]` to `[0, 1]`.
+- `predict_activity(..., context=...)` temporarily replaces reference embedding when context is a non-empty string.
 
 ### `ESMBiologistGlobalL2` (`peptide_pipeline/biologist/esm_biologist_global_l2.py`)
 
-- Uses ESM-2 embeddings and L2 distance to a reference embedding.
-- Uses global exponential distance scoring: `score = exp(-distance / temperature)`.
-- Avoids per-batch normalization so scores remain comparable across batches.
-- Supports optional context with temporary reference replacement.
+- Loads ESM-2 and uses hidden layer index 6 embeddings (with `output_hidden_states=True`).
+- Computes mean-pooled embeddings and L2 distance to reference embedding.
+- Scores with `exp(-distance / score_temperature)`.
+- `predict_activity` context behavior matches the cosine variant (temporary reference replacement).
 
-### Important Behavior Notes
+### Important Behavior Notes (As Implemented)
 
-- Both implementations return empty lists for empty peptide inputs.
-- Both implementations depend on `transformers` model loading and may require access to Hugging Face model files.
+- Both implementations return `[]` for empty peptide input.
+- Neither implementation validates sequence characters before model inference.
+- Base interface accepts `Optional[Any]` context, but both concrete implementations effectively handle string context.
+- Runtime requires model download/access (or local cache) for the configured Hugging Face model.
 
 ---
 
 ## How To Add A New Biologist
 
 1. Create a class inheriting from `BaseBiologist`.
-2. Define model dependencies and runtime configuration in `__init__`.
-3. Implement `score_peptides` with deterministic, documented behavior.
-4. Implement `predict_activity` and define accepted context schema.
-5. Validate peptide and context inputs.
-6. Add tests for normal behavior, invalid inputs, and edge cases.
+2. Initialize model/dependencies in `__init__`.
+3. Implement deterministic `score_peptides` mapping input list to score list.
+4. Implement `predict_activity` and document context schema.
+5. Validate inputs and return explicit errors for unsupported context types.
+6. Add tests for empty input, normal input, and context-driven behavior.
 
 ---
 
@@ -82,9 +82,6 @@ from peptide_pipeline.biologist.base import BaseBiologist
 
 
 class MyBiologist(BaseBiologist):
-    def __init__(self):
-        self._is_ready = True
-
     def score_peptides(self, peptides: List[str]) -> List[float]:
         if not peptides:
             return []
@@ -97,15 +94,15 @@ class MyBiologist(BaseBiologist):
     ) -> List[float]:
         if not peptides:
             return []
-        return [0.5 for _ in peptides]
+        return self.score_peptides(peptides)
 ```
 
 ---
 
 ## Developer Checklist
 
-- `score_peptides` returns one score per peptide in stable order.
-- Score range and scaling are explicitly documented.
-- `predict_activity` context format is documented and validated.
-- Error handling is explicit and actionable.
-- Tests cover expected behavior and failure modes.
+- One output score per input peptide.
+- Score range/meaning is clearly documented.
+- Context schema and fallback behavior are explicit.
+- External model dependencies and offline behavior are documented.
+- Tests cover deterministic behavior and edge cases.

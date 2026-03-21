@@ -212,8 +212,8 @@ database/*.json
 # peptide representation file
 .sdf
 
-baseline/*.pkl
-baseline/*.pth
+*.pkl
+*.pth
 
 #report files
 report/.aux
@@ -222,8 +222,4 @@ report/.fls
 report/.log
 report/.synctex.gz
 
-peptide_pipeline/generator/*.pth
-
-experiments/*.pkl
-experiments/*.pth
 experiments/*.csv
