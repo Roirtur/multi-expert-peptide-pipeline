@@ -1,12 +1,18 @@
 from pydantic import BaseModel
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from typing import Optional
 
 class RangeTarget(BaseModel):
     min: float
     max: float
     target: float
-    wheight: Optional[float] = 1.0
+    weight: Optional[float] = 1.0
+
+    @model_validator(mode='after')
+    def check_min_max(self):
+        if self.min > self.max:
+            raise ValueError("min must be less than or equal to max")
+        return self
 
     @field_validator("target")
     def check_target(cls, v, info):
@@ -25,4 +31,3 @@ class ChemistConfig(BaseModel):
     net_charge : Optional[RangeTarget] = None
     isoelectric_point : Optional[RangeTarget] = None
     hydrophobicity : Optional[RangeTarget] = None
-    cathionicity : Optional[RangeTarget] = None

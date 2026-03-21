@@ -1,5 +1,5 @@
-import logging  
-from typing import List, Dict, Any
+import logging
+from typing import List, Dict, Any, Optional
 
 from peptide_pipeline.generator.base import BaseGenerator
 from peptide_pipeline.chemist.base import BaseChemist
@@ -14,41 +14,15 @@ class BaseOrchestrator:
         self.chemist = chemist
         self.biologist = biologist
 
-    def run(self, iterations=10, population_size=100, top_k=10):
-        # 1. Generate initial population with Generator Agent
-        population = self.generator.generate_peptides(count=population_size)
-
-        for i in range(iterations):
-            # 2. Filter valid peptides with Chemist Agent
-            validity_mask = self.chemist.check_validity(population)
-            valid_population = [
-                pop for pop, valid in zip(population, validity_mask) 
-                if valid
-            ]
-
-            if not valid_population:
-                break
-
-            # 3. Score candidates with Biologist Agent (Batch)
-            # Assuming predict_activity returns a list of scores
-            scores = self.biologist.predict_activity(valid_population, "target_description")
-            self.logger.info(f"Predicted activities for {len(scores)} peptides.")
-
-            scored_population = []
-            for peptide, score in zip(valid_population, scores):
-                scored_population.append({"sequence": peptide, "score": score})
-
-            # 4. Keep Top-K best candidates
-            scored_population.sort(key=lambda x: x["score"], reverse=True)
-            best_candidates = scored_population[:top_k]
-
-            # 5. Generate new candidates based on best ones
-            best_sequences = [c["sequence"] for c in best_candidates]
-            new_candidates = self.generator.modify_peptides(best_sequences, feedback={"count": population_size - top_k})
-            self.logger.info(f"Generated {len(new_candidates)} new peptide candidates.")
-
-            # Update population (Top-K + New)
-            population = best_sequences + new_candidates
-
-        return best_candidates
+    def run(
+        self,
+        nb_iterations: int,
+        nb_peptides: int,
+        top_k: int,
+        exploration_rate: float = 0.1,
+        initial_peptide: Optional[str] = None,
+        final_target: Optional[Dict[str, Any]] = None,
+        random_parent_count: int = 4,
+    ) -> List[Dict[str, Any]]:
+        raise NotImplementedError("Subclasses must implement run with orchestrator loop logic.")
 

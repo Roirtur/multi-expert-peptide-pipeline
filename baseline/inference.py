@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-from data_handler import IDX_TO_AA
+from baseline.data_handler import IDX_TO_AA
 
 # Target Features: [length, ph, molecular_weight, logp, net_charge, isoelectric_point, hydrophobicity, cathionicity]
 DEFAULT_TARGET_PROPERTIES = [10, 7.0, 1200.0, 2.5, 3.0, 10.0, -0.5, 3]

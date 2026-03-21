@@ -4,7 +4,7 @@ import os
 import pandas as pd
 import torch
 from typing import List, Any, Optional
-from peptide_pipeline.dataloader.base import BaseDataLoader
+from base import BaseDataLoader
 import re
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.insert(0, PROJECT_ROOT)
@@ -37,7 +37,7 @@ class DataLoader(BaseDataLoader):
             if columns is None:
                 self.logger.info("No columns specified, defaulting to ['NAME', 'SEQUENCE']")
                 columns = ['NAME', 'SEQUENCE']
-            
+
             missing = [col for col in columns if col not in self.data.columns]
             if missing:
                 self.logger.error(f"Requested columns not found in CSV: {missing}")
