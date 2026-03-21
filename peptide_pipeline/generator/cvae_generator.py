@@ -160,7 +160,8 @@ class CVAEGenerator(BaseGenerator):
             if (epoch + 1) % 50 == 0:
                 avg_recon = epoch_recon / len(dataloader)
                 avg_kl = epoch_kl / len(dataloader)
-                print(f"  Epoch {epoch+1:03d}/{epochs} | Recon: {avg_recon:.4f} | KL: {avg_kl:.4f} | KL weight: {kl_weight:.2f}")
+
+                self.logger.info(f"  Epoch {epoch+1:03d}/{epochs} | Recon: {avg_recon:.4f} | KL: {avg_kl:.4f} | KL weight: {kl_weight:.2f}")
 
     def _peptides_to_one_hot(self, peptides: List[str]) -> torch.Tensor:
         amino_acids = "ACDEFGHIKLMNPQRSTVWY"
