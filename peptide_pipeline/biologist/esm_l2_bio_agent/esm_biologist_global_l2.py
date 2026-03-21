@@ -34,14 +34,24 @@ class ESMBiologistGlobalL2(BaseBiologist):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.score_temperature = max(float(score_temperature), 1e-6)
 
+        self.logger.debug(f"Initializing ESMBiologistCos with model {model_name} on device {device} and batch size {batch_size}")
+        self.logger.debug(f"Reference peptide: {reference_peptide}")
+
+        self.logger.debug("Loading ESM model and tokenizer...")
+
         token = hf_token or os.environ.get("HF_TOKEN")
+        self.logger.debug(f"loading tokenizer for {model_name}")
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, token=token)
+        self.logger.debug(f"Tokenizer loaded. Vocabulary size: {len(self.tokenizer)}")
+        self.logger.debug(f"loading model for {model_name}")
         self.model = AutoModel.from_pretrained(model_name, token=token)
+        self.logger.debug("ESM model and tokenizer loaded.")
         self.model.eval()
         self.model.to(self.device)
 
         # Pre-compute reference embedding (Using Layer 6 for better biochemical signal)
         self._reference_embedding = self._embed_sequences([reference_peptide])[0]
+        self.logger.debug(f"Biologist {model_name} initialized with reference peptide embedding.")
 
     def _embed_sequences(self, sequences: List[str]) -> torch.Tensor:
         all_embeddings: List[torch.Tensor] = []
@@ -67,6 +77,7 @@ class ESMBiologistGlobalL2(BaseBiologist):
 
             all_embeddings.append(mean_pooled.cpu())
 
+        self.logger.debug(f"Embedded {len(sequences)} sequences into {all_embeddings[-1].shape[1]}-dimensional space using Layer 6.")
         return torch.cat(all_embeddings, dim=0)
 
     def score_peptides(self, peptides: List[str]) -> List[float]:
@@ -81,7 +92,7 @@ class ESMBiologistGlobalL2(BaseBiologist):
 
         # Global, batch-independent mapping with tunable compression.
         scores = torch.exp(-distances / self.score_temperature)
-
+        self.logger.debug(f"Scored {len(peptides)} peptides. Distance stats: mean={distances.mean():.4f}, std={distances.std():.4f}, min={distances.min():.4f}, max={distances.max():.4f}")
         return scores.tolist()
 
     def predict_activity(self, peptides: List[str], context: str = None) -> List[float]:
@@ -90,7 +101,9 @@ class ESMBiologistGlobalL2(BaseBiologist):
             self._reference_embedding = self._embed_sequences([context])[0]
             scores = self.score_peptides(peptides)
             self._reference_embedding = original_ref
+            self.logger.debug(f"Context provided: '{context}'. Temporarily updated reference embedding for scoring.")
             return scores
+        self.logger.debug("No context provided, using default reference peptide for scoring.")
         return self.score_peptides(peptides)
 
     def __repr__(self) -> str:

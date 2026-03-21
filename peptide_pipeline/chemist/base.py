@@ -27,6 +27,7 @@ class BaseChemist(ABC):
                 f"Sequence {sequence} is invalid. The sequence contains non-standard amino acids. "
                 "Only the 20 standard amino acids are allowed."
             )
+        self.logger.debug(f"Validated sequence: {sequence}. Valid: {is_valid}")
         return is_valid
 
     @abstractmethod
