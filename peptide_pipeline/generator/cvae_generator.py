@@ -39,7 +39,7 @@ class CVAEGenerator(BaseGenerator):
         self.hidden_dim = hidden_dim
         self.condition_dim = condition_dim
 
-
+        self.logger.debug(f"Initialized CVAEGenerator with input_dim={self.input_dim}, latent_dim={latent_dim}, hidden_dim={hidden_dim}, condition_dim={condition_dim}, max_len={max_len}")
         # Encoder
         self.encoder = nn.Sequential(
             nn.Linear(self.input_dim + condition_dim, hidden_dim),
@@ -86,6 +86,7 @@ class CVAEGenerator(BaseGenerator):
         self.eval()
         device = self._current_device()
         self.device = device
+        self.logger.debug(f"Generating peptides with count={count}, constraints={constraints}, temperature={temperature}")
         with torch.no_grad():
             z = torch.randn(count, self.latent_dim, device=device)
             y = self._constraints_to_condition_tensor(constraints, count, device=device)
@@ -110,6 +111,7 @@ class CVAEGenerator(BaseGenerator):
         return peptides
 
     def modify_peptides(self, peptides: List[str], feedback: Optional[Any] = None) -> List[str]:
+        self.logger.debug(f"Modifying peptides with feedback: {feedback}")
         return self.generate_peptides(len(peptides))
 
     def train_model(self, data, conditions, lengths, epochs=300, batch_size=64, lr=1e-3, kl_anneal_epochs=100):
@@ -120,6 +122,8 @@ class CVAEGenerator(BaseGenerator):
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
         dataset = TensorDataset(data, conditions, lengths)
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+        self.logger.info(f"Starting training for {epochs} epochs with batch size {batch_size} and learning rate {lr}")
 
         for epoch in range(epochs):
             kl_weight = min(1.0, epoch / max(1, kl_anneal_epochs))
@@ -166,6 +170,7 @@ class CVAEGenerator(BaseGenerator):
     def _peptides_to_one_hot(self, peptides: List[str]) -> torch.Tensor:
         amino_acids = "ACDEFGHIKLMNPQRSTVWY"
         one_hot = torch.zeros(len(peptides), self.input_dim, device=self.device)
+        self.logger.debug(f"Converting {len(peptides)} peptides to one-hot encoding with input_dim={self.input_dim}")
         for i, peptide in enumerate(peptides):
             for j, aa in enumerate(peptide):
                 if aa in amino_acids:
@@ -245,9 +250,11 @@ class CVAEGenerator(BaseGenerator):
         return max(1, min(int(round(target)), self.max_len))
 
     def save_model(self, path: str) -> None:
+        self.logger.info(f"Saving model to {path}")
         torch.save(self.state_dict(), path)
 
     def load_model(self, path: str) -> None:
+        self.logger.info(f"Loading model from {path}")
         device = self._current_device()
         self.load_state_dict(torch.load(path, map_location=device))
         self.to(device)

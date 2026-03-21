@@ -42,10 +42,11 @@ class ESMBiologistGlobalL2(BaseBiologist):
 
         # Pre-compute reference embedding (Using Layer 6 for better biochemical signal)
         self._reference_embedding = self._embed_sequences([reference_peptide])[0]
+        self.logger.info(f"Reference embedding computed for peptide '{reference_peptide[:20]}...'")
 
     def _embed_sequences(self, sequences: List[str]) -> torch.Tensor:
         all_embeddings: List[torch.Tensor] = []
-
+        self.logger.debug(f"Embedding {len(sequences)} sequences using model '{self.model_name}' on device '{self.device}'")
         for i in range(0, len(sequences), self.batch_size):
             batch = sequences[i : i + self.batch_size]
             encoded = self.tokenizer(batch, return_tensors="pt", padding=True, truncation=True)
@@ -71,6 +72,7 @@ class ESMBiologistGlobalL2(BaseBiologist):
 
     def score_peptides(self, peptides: List[str]) -> List[float]:
         if not peptides:
+            self.logger.warning("No peptides provided to score_peptides. Returning empty list.")
             return []
 
         candidate_embeddings = self._embed_sequences(peptides)
@@ -81,7 +83,7 @@ class ESMBiologistGlobalL2(BaseBiologist):
 
         # Global, batch-independent mapping with tunable compression.
         scores = torch.exp(-distances / self.score_temperature)
-
+        self.logger.debug(f"Scored {len(peptides)} peptides with distances: {distances.cpu().numpy()} and scores: {scores.cpu().numpy()}")
         return scores.tolist()
 
     def predict_activity(self, peptides: List[str], context: str = None) -> List[float]:

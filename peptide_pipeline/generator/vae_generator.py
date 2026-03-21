@@ -14,7 +14,7 @@ class VAEGenerator(BaseGenerator):
         self.input_dim = input_dim
         self.latent_dim = latent_dim
         self.hidden_dim = hidden_dim
-
+        self.logger.debug(f"Initialized VAEGenerator with input_dim={input_dim}, latent_dim={latent_dim}, hidden_dim={hidden_dim}")
 
         # Encoder
         self.encoder = nn.Sequential(
@@ -45,12 +45,14 @@ class VAEGenerator(BaseGenerator):
     def _reparameterize(self, mu: torch.Tensor, log_var: torch.Tensor) -> torch.Tensor:
         std = torch.exp(0.5 * log_var)
         eps = torch.randn_like(std)
+        self.logger.debug(f"Reparameterization: mu shape {mu.shape}, log_var shape {log_var.shape}, std shape {std.shape}, eps shape {eps.shape}")
         return mu + eps * std
 
     def forward(self, x: torch.Tensor) -> tuple:
         h = self.encoder(x)
         mu, log_var = h.chunk(2, dim=-1)
         z = self._reparameterize(mu, log_var)
+        self.logger.debug(f"Forward pass: input shape {x.shape}, encoded shape {h.shape}, mu shape {mu.shape}, log_var shape {log_var.shape}, z shape {z.shape}")
         return self.decoder(z), mu, log_var
 
     def generate_peptides(self, count: int, constraints: Optional[Dict[str, Any]] = None, temperature: float = 1.0) -> List[str]:
@@ -83,7 +85,7 @@ class VAEGenerator(BaseGenerator):
         dataset = TensorDataset(data)
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
         num_positions = self.input_dim // 20
-
+        self.logger.info(f"Starting training for {epochs} epochs with batch size {batch_size} and learning rate {lr}")
         for epoch in range(epochs):
             kl_weight = min(1.0, epoch / max(1, kl_anneal_epochs))
             epoch_recon = 0.0
@@ -118,7 +120,7 @@ class VAEGenerator(BaseGenerator):
             if (epoch + 1) % 50 == 0:
                 avg_recon = epoch_recon / len(dataloader)
                 avg_kl = epoch_kl / len(dataloader)
-                print(f"  Epoch {epoch+1:03d}/{epochs} | Recon: {avg_recon:.4f} | KL: {avg_kl:.4f} | KL weight: {kl_weight:.2f}")
+                self.logger.info(f"  Epoch {epoch+1:03d}/{epochs} | Recon: {avg_recon:.4f} | KL: {avg_kl:.4f} | KL weight: {kl_weight:.2f}")
 
     def _peptides_to_one_hot(self, peptides: List[str]) -> torch.Tensor:
         amino_acids = "ACDEFGHIKLMNPQRSTVWY"
@@ -131,8 +133,10 @@ class VAEGenerator(BaseGenerator):
         return one_hot
 
     def save_model(self, path: str) -> None:
+        self.logger.info(f"Saving model to {path}")
         torch.save(self.state_dict(), path)
 
     def load_model(self, path: str) -> None:
+        self.logger.info(f"Loading model from {path}")
         self.load_state_dict(torch.load(path, map_location=self.device))
         self.to(self.device)

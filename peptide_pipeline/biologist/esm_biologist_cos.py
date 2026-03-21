@@ -39,7 +39,8 @@ class ESMBiologistCos(BaseBiologist):
         self.reference_peptide = reference_peptide
         self.model_name = model_name
         self.batch_size = batch_size
-
+        
+        self.logger.debug(f"Initializing ESMBiologistCos with model '{model_name}' and reference peptide '{reference_peptide[:20]}...'")
         if device is None:
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
         else:
@@ -57,6 +58,7 @@ class ESMBiologistCos(BaseBiologist):
         self._reference_embedding: torch.Tensor = self._embed_sequences(
             [reference_peptide]
         )[0]
+        self.logger.info(f"ESMBiologistCos initialized on device '{self.device}' with model '{model_name}'")
 
     def _embed_sequences(self, sequences: List[str]) -> torch.Tensor:
         """
@@ -107,6 +109,7 @@ class ESMBiologistCos(BaseBiologist):
         Score each peptide against the stored reference peptide.
         """
         if not peptides:
+            self.logger.warning("No peptides provided to score_peptides. Returning empty list.")
             return []
 
         candidate_embeddings = self._embed_sequences(peptides)  # (N, hidden_dim)
