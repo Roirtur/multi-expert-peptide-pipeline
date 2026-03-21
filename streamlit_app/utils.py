@@ -108,28 +108,45 @@ def setup_streamlit_logger(log_placeholder):
             
     st_handler.addFilter(CleanFilter())
     root_logger.addHandler(st_handler)
-
+    
 def render_chemist_form(prefix="chem_"):
     chem_config_data = {}
     chem_errors = {}
-    for name, field in ChemistConfig.model_fields.items():
+
+    fields = list(ChemistConfig.model_fields.items())
+
+    # 1) Scalars first (full width), e.g. pH
+    for name, field in fields:
         annotation_str = str(field.annotation)
-        if "RangeTarget" in annotation_str:
-            with st.expander(f"Property: {name.replace('_', ' ').title()}", expanded=False):
-                c1, c2, c3 = st.columns(3)
-                with c1:
-                    min_val = st.text_input("min", key=f"{prefix}{name}_min")
-                with c2:
-                    max_val = st.text_input("max", key=f"{prefix}{name}_max")
-                with c3:
-                    target_val = st.text_input("target", key=f"{prefix}{name}_target")
-                chem_config_data[name] = {"min": min_val, "max": max_val, "target": target_val}
-                chem_errors[name] = st.empty()
-        else:
+        if "RangeTarget" not in annotation_str:
             default = field.default if field.default is not None else ""
-            val = st.text_input(f"{name.capitalize()}", value=str(default), key=f"{prefix}scalar_{name}")
+            label = "pH" if name.lower() == "ph" else name.replace("_", " ").title()
+            val = st.text_input(label, value=str(default), key=f"{prefix}scalar_{name}")
             chem_config_data[name] = val
             chem_errors[name] = st.empty()
+
+    # 2) RangeTarget properties in two columns
+    col_left, col_right = st.columns(2)
+    range_idx = 0
+    for name, field in fields:
+        annotation_str = str(field.annotation)
+        if "RangeTarget" in annotation_str:
+            container = col_left if range_idx % 2 == 0 else col_right
+            range_idx += 1
+
+            with container:
+                with st.expander(f"Property: {name.replace('_', ' ').title()}", expanded=False):
+                    c1, c2, c3 = st.columns(3)
+                    with c1:
+                        min_val = st.text_input("min", key=f"{prefix}{name}_min")
+                    with c2:
+                        max_val = st.text_input("max", key=f"{prefix}{name}_max")
+                    with c3:
+                        target_val = st.text_input("target", key=f"{prefix}{name}_target")
+
+                    chem_config_data[name] = {"min": min_val, "max": max_val, "target": target_val}
+                    chem_errors[name] = st.empty()
+
     return chem_config_data, chem_errors
 
 def get_available_models(model_type):
