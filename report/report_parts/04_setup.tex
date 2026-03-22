@@ -6,13 +6,11 @@ This section documents the implemented scoring and comparison protocol used in t
 \subsubsection{Biologist Agent Scoring}
 The objective is to rank a batch of peptides and identify which candidate is closest to the provided context (an existing peptide or requested properties represented as a reference embedding).
 
-The implementation uses ESM-2 embeddings (by default:\url{facebook/esm2\_t12\_35M\_UR50D}) with attention-mask-aware mean pooling to produce one vector per peptide.
+The biologist module uses ESM-2 embeddings (default: \url{facebook/esm2\_t12\_35M\_UR50D}) with attention-mask-aware mean pooling to produce one vector per peptide.
 
-We first tested cosine similarity between candidate and reference embeddings. In practice, cosine values were often too similar for short peptides in this protein-wide latent space, which reduced ranking contrast. We therefore switched to Euclidean distance, which gave us better results.
+Two proxy variants are implemented. The first uses cosine similarity, mapped to $[0,1]$. The second (Global L2) computes Euclidean distance to a reference embedding and applies a batch-independent exponential mapping. In preliminary tests, cosine scores showed limited contrast for short peptides, so the Global L2 variant was preferred for iterative ranking.
 
-The resulting score is used for ranking and Top-$K$ selection by the orchestrator. It should be interpreted as a proxy signal to guide the search process, not as an absolute biological activity measurement.
-
-The implementation supports two ESM-2 proxy variants. A cosine-similarity variant maps embedding similarity to $[0,1]$, while a Global L2 variant computes Euclidean distance to a reference embedding and applies a batch-independent exponential mapping. The latter provides stable scores across batches and runs, which is beneficial for iterative ranking in the orchestrator.
+The resulting score is used by the orchestrator for candidate ranking and Top-$K$ selection. It is treated as a proxy signal to guide search, not as an absolute biological activity measurement.
 
 \subsubsection{Chemist Agent Scoring}
 
