@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Optional, Tuple
-from data_handler import AA_TO_IDX
+from baseline.data_handler import AA_TO_IDX
 
 
 class Encoder(nn.Module):

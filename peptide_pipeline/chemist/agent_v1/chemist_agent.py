@@ -1,148 +1,183 @@
 from typing import Dict, List, Optional, Tuple
-
+from numpy import exp
 from rdkit import Chem
 from rdkit.Chem import SDWriter, rdDepictor
 
 from peptide_pipeline.chemist.base import BaseChemist
 from .config_chemist import ChemistConfig, RangeTarget
-from peptide_pipeline.chemist.agent_v1.properties import CHEMIST_PROPERTIES
+from .properties import PROPERTY_REGISTRY
+
 
 class ChemistAgent(BaseChemist):
     def __init__(self, config: ChemistConfig):
-        super().__init__()
+        super().__init__(config)
         self.config = config
-
-    def check_validity(self, peptides: List[str]) -> List[bool]:
-        """Return a list indicating whether each peptide is within the configured constraints."""
-        results = []
-        for peptide in peptides:
-            _, in_limits = self.evaluate_peptide(peptide, self.config)
-            results.append(in_limits)
-        return results
-
-    def calculate_score(self, value: float, range_target: RangeTarget) -> Tuple[float, bool]:
-        """
-        Calculate a score based on the distance from the target value and the limits.
-        The score is higher when the value is closer to the target and decreases as it moves away from the target, especially beyond the limits.
-        """
-        in_limit = True
-        if value < range_target.min or value > range_target.max:
-            in_limit = False
-            
-        score = abs(value - range_target.target)
-        
-        return score, in_limit
-
-    def evaluate_peptide(self, peptide: str, config: Optional[ChemistConfig] = None) -> Tuple[float, bool]:
-        """
-        Evaluates a single peptide against the provided chemical constraints and calculates a score for each property.
-        Return the score calculated on the properties with a wheight if provided in the config and if the peptide is within all limits or not.
-        """
-
-        active_config = config or self.config
-
-        scores = 0.0
-        in_limits = True
-        for name in ChemistConfig.model_fields:
-            if name == "ph":
-                continue
-
-            param = getattr(active_config, name)
-            if param is None:
-                continue
-
-            if name == "net_charge":
-                value = CHEMIST_PROPERTIES[name](peptide, pH=active_config.ph)
-            else:
-                value = CHEMIST_PROPERTIES[name](peptide)
-
-            score, in_limit = self.calculate_score(value, param)
-            if param.wheight is not None:
-                score *= param.wheight
-            if not in_limit:
-                in_limits = False
-            scores += score
-
-        return scores, in_limits
-
-    def filter_peptides(
-        self,
-        peptides: List[str],
-        config: Optional[ChemistConfig] = None,
-        threshold: float = 0.5,
-    ) -> List[str]:
-        """
-        Filters a list of peptides based on chemical constraints defined in the ChemistConfig.
-        If too few peptides are returned after filtering, a minimum of x% peptides will be returned based on their score (score is calculated by the target and limit distance).    
-        """
-        active_config = config or self.config
-        peptide_ranking = {}
-        for peptide in peptides:
-            scores, in_limits = self.evaluate_peptide(peptide, active_config)
-            peptide_ranking[peptide] = (scores, in_limits)
-        
-        # First filter peptides that are within limits
-        filtered_peptides = [pep for pep, (scores, in_limits) in peptide_ranking.items() if in_limits]
-
-        if len(filtered_peptides) < threshold * len(peptides):
-            # If too few peptides are within limits, include those closest to targets first.
-            sorted_peptides = sorted(peptide_ranking.items(), key=lambda item: item[1][0])
-            additional_peptides = [pep for pep, (scores, in_limits) in sorted_peptides if pep not in filtered_peptides]
-            filtered_peptides.extend(additional_peptides[:int(threshold * len(peptides)) - len(filtered_peptides)])
-
-        return filtered_peptides
     
-    def calculate_properties(self, peptide: str, config: Optional[ChemistConfig] = None) -> Dict[str, float]:
+    def _calculate_properties(self, peptide: str) -> Tuple[Dict[str, float], Dict[str, float], bool]:
         """
         Calculates the properties of a peptide based on the provided ChemistConfig.
         Returns a dictionary with property names as keys and their corresponding values as values.
         """
-        active_config = config or self.config
         properties = {}
-        for name in ChemistConfig.model_fields:
-            if name == "ph":
-                continue
-
-            if getattr(active_config, name) is None:
-                continue
-
-            if name == "net_charge":
-                properties[name] = CHEMIST_PROPERTIES[name](peptide, pH=active_config.ph)
-            else:
-                properties[name] = CHEMIST_PROPERTIES[name](peptide)
+        distance_from_target = {}
+        in_limits = True
         
-        return properties
+        for prop_name, prop_def in PROPERTY_REGISTRY.items():
+            # Skip if not configured
+            if getattr(self.config, prop_name) is None:
+                continue
+            
+            # Calculate property value
+            if prop_def.requires_ph:
+                properties[prop_name] = prop_def.function(peptide, pH=self.config.ph)
+            else:
+                properties[prop_name] = prop_def.function(peptide)
+            
+            # Check limits
+            config_constraint = getattr(self.config, prop_name)
+            if config_constraint.min is not None and properties[prop_name] < config_constraint.min:
+                in_limits = False
+            if config_constraint.max is not None and properties[prop_name] > config_constraint.max:
+                in_limits = False
+            
+            # Calculate distance from target
+            if config_constraint.target is not None:
+                distance_from_target[prop_name] = abs(properties[prop_name] - config_constraint.target)
+            else:
+                self.logger.warning(f"No target defined for property '{prop_name}' in ChemistConfig. Distance from target will not be calculated for this property.")
 
-    def analyze_peptide(self, peptide: str) -> Dict[str, object]:
-        score, in_limits = self.evaluate_peptide(peptide)
-        properties = self.calculate_properties(peptide)
+        return properties, distance_from_target, in_limits
+
+    def _score_property(self, peptide_value: float, config_constraint: RangeTarget) -> float:
+        """
+        Score a single property based on distance from target with exponential decay.
+        Returns a score between 0 and 1, where:
+        - Score is 0 if the value is outside acceptable limits
+        - Score is based on distance decay from target if within limits
+        - Decay is normalized using the acceptable range around the target
+        """
+        # Check if within limits
+        if config_constraint.min is not None and peptide_value < config_constraint.min:
+            return 0.0
+        if config_constraint.max is not None and peptide_value > config_constraint.max:
+            return 0.0
+        
+        # If no target defined, cannot score
+        if config_constraint.target is None:
+            return 1.0
+        
+        # Calculate distance from target
+        distance = abs(peptide_value - config_constraint.target)
+        
+        # Calculate max acceptable distance (range from target to furthest limit)
+        max_distance = 0.0
+        if config_constraint.min is not None:
+            max_distance = max(max_distance, abs(config_constraint.target - config_constraint.min))
+        if config_constraint.max is not None:
+            max_distance = max(max_distance, abs(config_constraint.target - config_constraint.max))
+        
+        # If at target, return perfect score
+        if distance == 0:
+            return 1.0
+        
+        # If max_distance is 0 (target equals both min and max), return 1
+        if max_distance == 0:
+            return 1.0
+        
+        # Normalize distance to [0, 1] range and apply exponential decay
+        normalized_distance = distance / max_distance
+        score = float(exp(-normalized_distance))
+        
+        return score
+
+    def _analyze_peptide(self, peptide: str) -> Dict[str, object]:
+        properties, distance_from_target, in_limits = self._calculate_properties(peptide)
+        self.logger.debug(f"Analyzed peptide: {peptide}, Properties: {properties}, Distance from target: {distance_from_target}, In limits: {in_limits}")
         return {
             "sequence": peptide,
-            "in_limits": in_limits,
-            "score": score,
             "properties": properties,
+            "distance_from_target": distance_from_target,
+            "in_limits": in_limits
         }
+    
+    def evaluate_peptides(self, peptides: List[str]) -> List[Dict[str, object]]:
+        """
+        Evaluates a list of peptides against the provided chemical constraints and calculates scores for each property.
+        Scores are calculated per-property based on distance from target with decay, normalized within property limits.
+        Scores are comparable across different batches/queries.
+        Returns a list of dictionaries, each containing property scores and an overall weighted score.
+        Also includes a boolean indicating if each peptide is within all limits or not.
+        """
+        # Validate peptides
+        for peptide in peptides:
+            if not self.validate_sequence(peptide):
+                self.logger.warning(f"Peptide '{peptide}' is invalid and will be skipped.")
+                peptides.remove(peptide)
+        if not peptides:
+            return []
 
-    def create_sdf_file(self, peptides: List[str], path: str):
-        """
-        Computes a .sdf file for each peptide in the list
-        .sdf includes 2DCoords and properties computed by the calculate_properties() function
-        """
-        with SDWriter(path) as writer:
-            for seq in peptides:
-                props = self.calculate_properties(seq)
-                mol = Chem.MolFromSequence(seq)
-                if mol is None:
-                    self.logger.warning(f"Peptide not constructible from sequence {seq}")
+        analyzed_peptides = {peptide: self._analyze_peptide(peptide) for peptide in peptides}
+
+        # List of properties valid for the config (not None)
+        valid_properties = [
+            prop_name
+            for prop_name in PROPERTY_REGISTRY.keys()
+            if getattr(self.config, prop_name) is not None
+        ]
+
+        scored_peptides = []
+        for peptide in analyzed_peptides.keys():
+            result = analyzed_peptides[peptide]
+            properties = result["properties"]
+            overall_score = 0.0
+            property_scores = {}
+
+            # Score each property independently
+            for prop_name in valid_properties:
+                if prop_name not in properties:
+                    self.logger.warning(f"Property '{prop_name}' was expected but not calculated for peptide '{peptide}'. Skipping this property for scoring.")
                     continue
-                rdDepictor.Compute2DCoords(mol)
                 
-                for key, value in props.items():
-                    mol.SetProp(key, str(value))
+                peptide_value = properties[prop_name]
+                config_constraint = getattr(self.config, prop_name)
                 
-                writer.write(mol)
-
-
+                # Get property score using distance decay method
+                prop_score = self._score_property(peptide_value, config_constraint)
+                property_scores[prop_name] = prop_score
+                
+                # Get weight for this property
+                weight = config_constraint.weight if config_constraint.weight is not None else 1.0
+                
+                # Accumulate weighted score
+                overall_score += prop_score * weight
+            
+            # Normalize overall score by number of properties (to keep it in reasonable range)
+            num_properties = len(property_scores) if property_scores else 1
+            normalized_overall_score = overall_score / num_properties
+            
+            scored_peptides.append(
+                {
+                    "sequence": peptide,
+                    "properties": result["properties"],
+                    "property_scores": property_scores,
+                    "score": normalized_overall_score,
+                    "in_limits": result["in_limits"],
+                }
+            )
+        self.logger.debug(f"Evaluated peptides with scores: {scored_peptides}")
+        return scored_peptides
+    
+    def get_top_filtered_peptides(self, peptides: List[str], topK: int) -> List[str]:
+        peptide_evaluated = self.evaluate_peptides(peptides)
+        # Sort by: in_limits peptides first (True first), then by score (descending)
+        sorted_peptides = sorted(peptide_evaluated, key=lambda x: (not x["in_limits"], -x["score"]))
+        
+        # Log if not enough in-limit peptides
+        in_limit_count = sum(1 for p in sorted_peptides if p["in_limits"])
+        if in_limit_count < topK:
+            self.logger.info(f"Only {in_limit_count} peptides are within limits, returning {topK - in_limit_count} out of limits ranked by score.")
+        
+        return sorted_peptides[:topK]
 
 
 

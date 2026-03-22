@@ -1,0 +1,51 @@
+{
+  "generators": {
+    "CVAE": {
+      "model_class": "CVAEGenerator",
+      "description": "Conditional Variational Autoencoder",
+      "parameters": [
+        {"id": "count", "label": "Number of Sequences to Generate", "type": "int", "default": 10},
+        {"id": "temperature", "label": "Temperature", "type": "float", "default": 1.0},
+        {"id": "constraints", "label": "Property Constraints (JSON)", "type": "str", "default": "{}"}
+      ],
+      "hyperparameters": [
+        {"id": "input_dim", "label": "Input Dimension", "type": "int", "default": 120},
+        {"id": "latent_dim", "label": "Latent Dimension", "type": "int", "default": 64},
+        {"id": "hidden_dim", "label": "Hidden Dimension", "type": "int", "default": 256},
+        {"id": "condition_dim", "label": "Condition Dimension (Properties)", "type": "int", "default": 32},
+        {"id": "max_len", "label": "Max Sequence Length", "type": "int", "default": 14}
+      ]
+    },
+    "VAE": {
+      "model_class": "VAEGenerator",
+      "description": "Variational Autoencoder",
+      "parameters": [
+        {"id": "count", "label": "Number of Sequences to Generate", "type": "int", "default": 10},
+        {"id": "temperature", "label": "Temperature", "type": "float", "default": 1.0}
+      ],
+      "hyperparameters": [
+        {"id": "input_dim", "label": "Input Dimension", "type": "int", "default": 120},
+        {"id": "latent_dim", "label": "Latent Dimension", "type": "int", "default": 64},
+        {"id": "hidden_dim", "label": "Hidden Dimension", "type": "int", "default": 256}
+      ]
+    }
+  },
+  "biologists": {
+    "ESMBiologistL2": {
+      "model_class": "ESMBiologistL2",
+      "description": "ESM-2 based Biologist with L2 distance",
+      "params": [
+        {"id": "model_name", "label": "HuggingFace ESM Model", "type": "str", "default": "facebook/esm2_t6_8M_UR50D"},
+        {"id": "batch_size", "label": "Batch Size for ESM Inference", "type": "int", "default": 16}
+      ]
+    },
+    "ESMBiologistCos": {
+      "model_class": "ESMBiologistCos",
+      "description": "ESM-2 based Biologist with Cosine distance",
+      "params": [
+        {"id": "model_name", "label": "HuggingFace ESM Model", "type": "str", "default": "facebook/esm2_t6_8M_UR50D"},
+        {"id": "batch_size", "label": "Batch Size for ESM Inference", "type": "int", "default": 16}
+      ]
+    }
+  }
+}
