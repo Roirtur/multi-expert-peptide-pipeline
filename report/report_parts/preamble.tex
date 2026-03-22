@@ -4,6 +4,7 @@
 \usepackage{multirow}
 \usepackage{booktabs} % Added for nicer tables (useful for result comparisons)
 \usepackage{url}
+\usepackage{xurl}
 \usepackage{float}
 \usepackage{amsmath}
 \usepackage{amssymb}
@@ -23,5 +24,8 @@
 \renewcommand{\thesection}{\arabic{section}}
 \renewcommand{\thesubsection}{\thesection.\arabic{subsection}}
 \renewcommand{\thesubsubsection}{\thesubsection.\arabic{subsubsection}}
+
+% Reduce small overfull boxes while preserving normal paragraph aesthetics.
+\setlength{\emergencystretch}{2em}
 
 \hyphenation{op-tical net-works semi-conduc-tor}

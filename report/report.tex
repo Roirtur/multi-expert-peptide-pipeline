@@ -9,11 +9,15 @@
 \maketitle
 
 \begin{abstract}
-We present a proof-of-concept multi-expert agentic pipeline for \textit{in silico} peptide generation \cite{wang2022machine}. A central orchestrator coordinates three specialized agents: an AI Designer that proposes candidates, a Chemistry Constraints agent that evaluates physicochemical feasibility proxies, and a Biology agent that provides an embedding-based biological ranking signal \cite{veltri2018deep}. 
-
-The implemented Generator is based on variational architectures (VAE/CVAE), while chemistry and biology scores are combined by the orchestrator to build a global Top-$K$ ranking across iterations.
+We present a proof-of-concept multi-expert agentic pipeline for \textit{in silico}
+peptide generation \cite{wang2022machine}. A central orchestrator coordinates
+three specialized agents: an AI Designer, a Chemistry Constraints agent, and a
+Biology agent providing an embedding-based ranking signal \cite{veltri2018deep}.
+The generator is based on variational architectures (VAE/CVAE), and chemistry and biology
+scores are fused by the orchestrator to build a global Top-$K$ ranking across iterations.
 \par\vspace{0.5\baselineskip}
-\noindent\textbf{Keywords:} Multi-Agent Systems, Peptide Generation, In Silico Drug Design, Variational Autoencoder, Conditional Variational Autoencoder, Evolutionary Scale Modeling.
+\noindent\textbf{Keywords:} Multi-Agent Systems, Peptide Generation,
+In Silico Drug Design, VAE/CVAE, Evolutionary Scale Modeling.
 \end{abstract}
 
 

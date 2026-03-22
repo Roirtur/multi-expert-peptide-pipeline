@@ -3,6 +3,7 @@ The global pipeline is organized around three specialized agents coordinated by 
 
 \begin{figure*}[t]
 \centering
+\resizebox{\textwidth}{!}{%
 \begin{tikzpicture}[
 	>=latex,
 	% Base Agent Style
@@ -65,6 +66,7 @@ The global pipeline is organized around three specialized agents coordinated by 
 \path (-5.9, -3.4) rectangle (8.2, 3);
 
 \end{tikzpicture}
+}
 \caption{Agentic Pipeline Architecture. Solid lines denote the sequential flow of peptide candidate batches. Dashed lines indicate the feedback loops, where both the Chemistry and Biology agents return their respective proxy scores back to the Orchestrator. Color coding differentiates the specialized domains of the pipeline.}
 \label{fig:pipeline_professional_colored}
 \end{figure*}
