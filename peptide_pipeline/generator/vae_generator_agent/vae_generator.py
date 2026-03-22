@@ -3,8 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 from typing import List, Optional, Dict, Any
-import numpy as np
-from abc import ABC
 from peptide_pipeline.generator.base import BaseGenerator
 
 class VAEGenerator(BaseGenerator):
@@ -118,8 +116,7 @@ class VAEGenerator(BaseGenerator):
             if (epoch + 1) % 50 == 0:
                 avg_recon = epoch_recon / len(dataloader)
                 avg_kl = epoch_kl / len(dataloader)
-                print(f"  Epoch {epoch+1:03d}/{epochs} | Recon: {avg_recon:.4f} | KL: {avg_kl:.4f} | KL weight: {kl_weight:.2f}")
-
+                self.logger.info(f"  Epoch {epoch+1:03d}/{epochs} | Recon: {avg_recon:.4f} | KL: {avg_kl:.4f} | KL weight: {kl_weight:.2f}")
     def _peptides_to_one_hot(self, peptides: List[str]) -> torch.Tensor:
         amino_acids = "ACDEFGHIKLMNPQRSTVWY"
         one_hot = torch.zeros(len(peptides), self.input_dim, device=self.device)

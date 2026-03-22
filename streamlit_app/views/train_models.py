@@ -1,6 +1,5 @@
 import streamlit as st
 import os
-from pydantic import ValidationError
 from pathlib import Path
 import base64
 

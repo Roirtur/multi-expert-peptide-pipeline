@@ -5,6 +5,9 @@ import time
 import argparse
 import os
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_OUTPUT_FILE = os.path.join(SCRIPT_DIR, 'training_data.json')
+
 # Import RDKit for calculating Molecular Weight and LogP from SMILES
 try:
     from rdkit import Chem
@@ -139,7 +142,7 @@ async def fetch_batch_details(session, peptides_list):
     results = await asyncio.gather(*tasks)
     return results
 
-async def extract_generative_ai_dataset_async(limit=5000, batch_size=1000, output_file='training_data.json'):
+async def extract_generative_ai_dataset_async(limit=5000, batch_size=1000, output_file=DEFAULT_OUTPUT_FILE):
     SEARCH_URL = "https://dbaasp.org/peptides"
     
     final_data = []
@@ -220,15 +223,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fetch peptide data with physicochemical calculations (Async)")
     parser.add_argument("--limit", type=int, default=5000, help="Total number of peptides to fetch")
     parser.add_argument("--batch-size", type=int, default=1000, help="Search batch size")
-    parser.add_argument("--output", type=str, default="training_data.json", help="Output JSON file")
 
     args = parser.parse_args()
 
     start_time = time.time()
     result = asyncio.run(extract_generative_ai_dataset_async(
         limit=args.limit,
-        batch_size=args.batch_size,
-        output_file=args.output
+        batch_size=args.batch_size
     ))
     end_time = time.time()
     
