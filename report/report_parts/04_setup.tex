@@ -1,5 +1,5 @@
 \section{Experimental Setup}\label{sec:setup}
-TODO: Describe the technical implementation (e.g., framework used, LLM endpoints).
+This section documents the implemented scoring and comparison protocol used in the current proof of concept.
 
 \subsection{Quantitative Scoring System}\label{subsec:scoring}
 
@@ -8,25 +8,27 @@ The objective is to rank a batch of peptides and identify which candidate is clo
 
 The implementation uses ESM-2 embeddings (by default:\url{facebook/esm2\_t12\_35M\_UR50D}) with attention-mask-aware mean pooling to produce one vector per peptide.
 
-We first tested cosine similarity between candidate and reference embeddings. In practice, cosine values were often too similar for short peptides in this protein-wide latent space, which reduced ranking contrast. We therefore switched to Euclidean distance, then normalized batch distances with a Z-score and mapped them to $[0,1]$ with a sigmoid.
+We first tested cosine similarity between candidate and reference embeddings. In practice, cosine values were often too similar for short peptides in this protein-wide latent space, which reduced ranking contrast. We therefore switched to Euclidean distance, which gave us better results.
 
-The resulting score is used for relative ranking inside each batch and for Top-$K$ selection by the orchestrator. It should be interpreted as a proxy signal to guide the search process, not as an absolute biological activity measurement.
+The resulting score is used for ranking and Top-$K$ selection by the orchestrator. It should be interpreted as a proxy signal to guide the search process, not as an absolute biological activity measurement.
 
 The implementation supports two ESM-2 proxy variants. A cosine-similarity variant maps embedding similarity to $[0,1]$, while a Global L2 variant computes Euclidean distance to a reference embedding and applies a batch-independent exponential mapping. The latter provides stable scores across batches and runs, which is beneficial for iterative ranking in the orchestrator.
 
 \subsubsection{Chemist Agent Scoring}
 
-Crucially, to prevent pipeline starvation (where strict filters might discard the entire population early in the optimization process), the agent employs an adaptive thresholding mechanism. The workflow operates in two phases:
+To prevent pipeline starvation (where strict filters might discard the entire population early in the optimization process), the orchestrator applies a simple fallback policy: if no in-limits candidate is available after chemistry evaluation, biological scoring is computed on the full chemist output (including out-of-limits candidates).
+
+The chemistry workflow therefore operates in two practical steps:
 \begin{enumerate}
-    \item \textbf{Hard Constraint Check:} Candidates are first filtered against strict limits (e.g., range constraints on length or charge).
-    \item \textbf{Population Rescue:} If the survival rate falls below a predefined threshold (e.g., $50\%$), the agent relaxes the hard constraints. It then fills the remaining quota by selecting the top-ranking rejected candidates—those that, while slightly violating limits, are mathematically closest to the ideal TPP.
+    \item \textbf{Hard constraint check and scoring:} Candidates are evaluated against strict limits and scored from target-distance-based property scores.
+    \item \textbf{Fallback at orchestration level:} If no candidate satisfies all limits, out-of-limits candidates are still passed to biology scoring to keep the iterative loop active.
 \end{enumerate}
-This strategy ensures a continuous flow of candidates to the Biology Agent while maximizing selective pressure towards developable molecules.
+This design ensures a continuous flow of candidates to the Biology Agent while maintaining selection pressure toward developable molecules.
 
 \begin{itemize}
-    \item \textbf{Solubility \& Stability:} We calculate the Isoelectric Point (pI) and Net Charge at specific physiological pH levels (e.g., pH 5.5). These metrics are critical for predicting aggregation propensity and solubility in biological fluids.
-    \item \textbf{Bioavailability \& Permeability:} The generated profile includes the partition coefficient ($\log P$), Topological Polar Surface Area (TPSA), and hydrophobicity indices. These values act as proxies for the peptide's ability to cross biological membranes and interact with hydrophobic pockets.
-    \item \textbf{Structural Indices:} Metrics such as the Boman Index are computed to estimate potential protein-binding potential or antimicrobial activity.
+    \item \textbf{Solubility \& Stability proxies:} Isoelectric point and net charge are computed for each peptide.
+    \item \textbf{Permeability proxy:} The profile includes $\log P$ (RDKit-based) and hydrophobicity.
+    \item \textbf{Basic developability descriptors:} Length and molecular weight are included in scoring and admissibility checks.
 \end{itemize}
 
 \subsubsection{Orchestrator-Level Scoring and Ranking}
@@ -95,7 +97,7 @@ This baseline CVAE is trained on the dataset built with \path{database/get_data.
 \node[outStyle] (outputSeq) at (6, 0) {Generated\\ peptide $\hat{x}$};
 
 % Added a line break (\\) after "net charge,"
-\node[condBlock] (condition) at (0, -2.5) {\textbf{Condition vector} $c$\\ \scriptsize [length, pH, MW, logP, net charge, \\ isoP, hydrophobicity, cationicity]};
+\node[condBlock] (condition) at (0, -2.5) {\textbf{Condition vector} $c$\\ \scriptsize [length, pH, MW, logP, net charge, \\ pI, hydrophobicity, cationicity]};
 
 \node[dataBlock, draw=purple!60, fill=purple!5] (noise) at (0, 2.5) {Prior sample\\ $\mathcal{N}(0, I)$\\ \scriptsize(Inference)};
 

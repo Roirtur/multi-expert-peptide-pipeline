@@ -1,9 +1,9 @@
 \section{Discussion \& Future Work}\label{sec:discussion}
 
 \subsection{Chemist agent improvement}
-Trough the whole filtering and scoring process by the agent, the computed scores are obtained using a peptide sequence code (e.g "ACDEF", "AA"). 
-The SMILES format is also very popular as its offer better topological information on the peptide, therefore we could be interested in gathering data from it, in addition to the current format.
-Unfortunately, our current lack of knowledge on the subject doesn't allow us to be certain about how this additional data could impact our scoring system and the overall pipeline.
+In the current implementation, chemistry filtering and scoring are computed directly from peptide sequences.
+An extension could incorporate richer molecular representations (for example SMILES-derived descriptors) as additional conditioning and scoring signals.
+Such an extension would require a dedicated preprocessing pipeline, a clear descriptor-selection strategy, and retraining of the generation components to ensure consistency between conditioning variables and chemistry constraints.
 
 \subsection{LLM usage for input}
 Initially, we considered using a large language model to guide peptide selection by training it to understand and communicate preferences about desired peptide characteristics. 
