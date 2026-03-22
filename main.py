@@ -1,6 +1,9 @@
-from tui.app import PeptideApp
+import sys
+import subprocess
 from logger import configure_logging
 
 if __name__ == "__main__":
     configure_logging(level="INFO")
-    PeptideApp().run()
+    print("Starting Streamlit Application...")
+    subprocess.run([sys.executable, "-m", "streamlit", "run", "streamlit_app/app.py"])
+

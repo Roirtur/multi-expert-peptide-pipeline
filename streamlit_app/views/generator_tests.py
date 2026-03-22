@@ -1,17 +1,10 @@
 import streamlit as st
 import pandas as pd
-import json
-import os
-from pydantic import ValidationError
 
 from streamlit_app.utils import (
-    highlight_error_card, parse_chemist_input, setup_streamlit_logger,
-    render_chemist_form, get_available_models, instantiate_generator,
-    instantiate_biologist, generators_config, biologists_config, config_data
+    setup_streamlit_logger, get_available_models, instantiate_generator,
+    generators_config
 )
-from peptide_pipeline.orchestrator.orchestrator import Orchestrator
-from peptide_pipeline.chemist.agent_v1.chemist_agent import ChemistAgent
-from peptide_pipeline.chemist.agent_v1.config_chemist import ChemistConfig
 
 def render():
     st.title("🧪 Generator Tests")
@@ -37,7 +30,7 @@ def render():
         st.subheader("CVAE Conditioning Constraints")
         st.markdown("Configure the constraints vector to condition the CVAE generation.")
         try:
-            from peptide_pipeline.generator.cvae_generator import constraints_default
+            from peptide_pipeline.generator.cvae_generator_agent.cvae_generator import constraints_default
             constraints = {}
             # Group constraints into 3 columns
             constraint_keys = list(constraints_default.keys())

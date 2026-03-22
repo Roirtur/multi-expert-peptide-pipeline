@@ -1,17 +1,10 @@
 import streamlit as st
-import pandas as pd
-import json
 import os
-from pydantic import ValidationError
 
 from streamlit_app.utils import (
-    highlight_error_card, parse_chemist_input, setup_streamlit_logger,
-    render_chemist_form, get_available_models, instantiate_generator,
-    instantiate_biologist, generators_config, biologists_config, config_data
+    setup_streamlit_logger,
+    instantiate_generator,
 )
-from peptide_pipeline.orchestrator.orchestrator import Orchestrator
-from peptide_pipeline.chemist.agent_v1.chemist_agent import ChemistAgent
-from peptide_pipeline.chemist.agent_v1.config_chemist import ChemistConfig
 
 def render():
     st.title("🏋️ Train Generator Models")
@@ -127,7 +120,7 @@ def render():
                                     x_tensor[i, j * VOCAB_SIZE + aa_index[aa]] = 1.0
                         
                         try:
-                            from peptide_pipeline.generator.cvae_generator import constraints_default
+                            from peptide_pipeline.generator.cvae_generator_agent.cvae_generator import constraints_default
                             conditions_tensors = []
                             alias = {"length": "size", "net_charge": "net_charge_pH5_5"}
                             df_renamed = df.rename(columns=alias)
