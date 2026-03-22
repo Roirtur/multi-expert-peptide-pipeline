@@ -1,18 +1,51 @@
 \section{Results and Analysis}\label{sec:results}
 
-\subsection{Overall Performance and Top-K Gain}\label{subsec:topk}
-TODO: Present the final Top-K peptides.
-TODO: Show the measurable gain in average score and Top-K score compared to the non-agentic baseline[cite: 13, 26, 30]. Use a table.
+This section focuses on the three key curves used to understand pipeline behavior: the effect of iterations, the number of generated peptides, and target peptide length.
+These are not the only analyses performed, but they are the most informative under the page constraints of this report.
 
-\subsection{Pipeline vs. Baseline Comparison}\label{subsec:pipeline_vs_baseline}
-TODO: Add a direct comparison table between the full multi-agent pipeline and the standalone CVAE baseline (one-shot generation), using the same evaluation protocol.
-TODO: Report at least validity, average score, Top-$K$ score, diversity, and chemistry-constraint pass rate for both systems.
-TODO: Add a short interpretation of the observed gap and indicate whether improvements are consistent across runs/seeds.
-TODO: Explicitly connect this comparison to the baseline definition in Section~\ref{subsec:baselines} and Figure~\ref{fig:baseline_cvae}.
+\subsection{Effect of Number of Iterations}\label{subsec:iter_curve}
 
-\subsection{Trajectory of Improvement}\label{subsec:trajectory}
-TODO: Analyze the evolution of the scores across multiple iterative rounds. Include a graph plotting score vs. iteration number[cite: 29].
+\begin{figure}[H]
+\centering
+\IfFileExists{images/nb_iterations.png}{%
+\includegraphics[width=0.86\textwidth]{images/nb_iterations.png}%
+}{%
+\fbox{\parbox[c][4.8cm][c]{0.82\textwidth}{\centering Missing figure file:\\ \texttt{images/nb\_iterations.png}}}%
+}
+\caption{Effect of \texttt{nb\_iterations} on Top-1 score and runtime.}
+\label{fig:nb_iterations}
+\end{figure}
 
-\subsection{Ablation Studies}\label{subsec:ablations}
-TODO: Present the results of running the pipeline with missing components to prove their worth.
-TODO: Compare the full pipeline vs. "Without Chemistry Agent", vs. "Without Biology Agent", vs. "Without Iteration"[cite: 42].
+Increasing iterations improves quality, but the gain remains gradual: Top-1 score moves from about $0.88$ to $0.89$. Runtime, however, grows sharply (from about $0.92$s to $13.39$s). This reflects a clear quality--time trade-off, with diminishing score gains at high iteration counts.
+
+\subsection{Effect of Number of Generated Peptides}\label{subsec:peptides_curve}
+
+\begin{figure}[H]
+\centering
+\IfFileExists{images/nb_peptides.png}{%
+\includegraphics[width=0.86\textwidth]{images/nb_peptides.png}%
+}{%
+\fbox{\parbox[c][4.8cm][c]{0.82\textwidth}{\centering Missing figure file:\\ \texttt{images/nb\_peptides.png}}}%
+}
+\caption{Effect of \texttt{nb\_peptides} on Top-1 score and runtime.}
+\label{fig:nb_peptides}
+\end{figure}
+
+When more candidates are generated per iteration, the score improves steadily (around $0.88$ to $0.89$), while runtime increases from about $1.83$s to $14.70$s. This confirms the same pattern: broader search helps, but computational cost rises quickly. A range of $256$ to $384$ peptides per iteration appears to be a practical compromise.
+
+\subsection{Effect of Target Peptide Length}\label{subsec:length_curve}
+
+\begin{figure}[H]
+\centering
+\IfFileExists{images/target_length.png}{%
+\includegraphics[width=0.86\textwidth]{images/target_length.png}%
+}{%
+\fbox{\parbox[c][4.8cm][c]{0.82\textwidth}{\centering Missing figure file:\\ \texttt{images/target\_length.png}}}%
+}
+\caption{Top-1 score and runtime versus target peptide length.}
+\label{fig:target_length}
+\end{figure}
+
+Target length has a strong impact on both quality and speed. Very short targets ($2$-$3$ residues) are the most difficult and stay around $0.82$ score. Performance then rises and stabilizes near $0.92$ for longer targets. Runtime increases more smoothly, from about $1.90$s to $3.77$s as length grows.
+
+Overall, the three plots tell a consistent story: better scores are achievable with larger search budgets, but the gain is moderate compared to the runtime increase. This is why selecting balanced settings is important for practical use.
