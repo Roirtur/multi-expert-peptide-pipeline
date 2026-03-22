@@ -73,19 +73,18 @@ The global pipeline is organized around three specialized agents coordinated by 
 The Orchestrator is the control layer that turns the three experts into a single iterative optimization system. 
 Its role is to enforce a fixed sequence of operations:
 \begin{enumerate}
-	\item Request a batch of candidates from the Generator (if not given when originally called)
-	\item Pass this batch through the Chemistry Agent to keep only chemically admissible peptides and associated proxy descriptors, and  send the surviving candidates to the Biology Agent for biological scoring. 
-	\item Based on these expert outputs, the Orchestrator ranks candidates, keeps the Top-$K$ subset, and uses this subset as the seed for the next generation cycle.
+	\item Generate a batch of candidates from target constraints (user-provided or inferred from the chemistry configuration).
+	\item Pass this batch through the Chemistry Agent to keep chemically admissible peptides and associated proxy descriptors; if no candidate is in-limits, the batch is still forwarded for biological scoring to avoid collapsing the loop.
+	\item Based on these expert outputs, the Orchestrator builds a global ranking of unique peptides across rounds, keeps the Top-$K$ output at the end, and uses top-ranked candidates as parents for the next generation cycle.
 \end{enumerate}
 In this way, each iteration combines exploration (new proposals) and exploitation (retaining best current candidates) under one consistent decision policy.
-The stopping criterias are handled at the orchestration level rather than inside each expert module. \\In practice, the loop can stop when :
+The stopping criterias are handled at the orchestration level rather than inside each expert module. \\In practice, the loop is driven by a fixed iteration budget; when an intermediate stage fails for a given round (for example no usable candidates), the run continues to the next round:
 \begin{itemize}
 	\item A maximum number of iterations is reached
-	\item No valid candidates survive the chemistry gate
-	\item The optimization objective is considered stable enough according to user-configured run settings (for example fixed Top-$K$, batch size, and iteration budget)
-	%TODO UPDATE APRES LA PR DE L'ORCHESTRATOR
+	\item Some rounds may contribute no candidates to the global ranking because generation or filtering yields no usable sequences
 \end{itemize}
 This implementation allows reproducible exepimentations : changing run behavior only requires updating orchestrator-level parameters, there is no need to change the experts.
+Compared to the previous global behavior, two points are now explicit: the process keeps a global best-by-sequence pool across all rounds (instead of only round-local selection), and chemistry out-of-limits candidates can still be biologically scored when no in-limits candidates exist.
 This agent also provides traceability by recording round-wise pipeline events and outcomes:
 \begin{itemize}
 	\item Input settings
@@ -97,12 +96,91 @@ This agent also provides traceability by recording round-wise pipeline events an
 This log-centric design makes the optimization path auditable from end to end: one can reconstruct why a peptide was retained or discarded at a given step, compare runs under different settings, and support post-hoc analysis of convergence behavior and failure cases.
 
 \subsection{Generator Agent}\label{subsec:designer}
-TODO: Describe how this agent generates candidates (prompting strategies, templates, mutation/crossover operators)[cite: 15].
+To generate novel peptide candidates, two generative architectures were implemented: a Variational Autoencoder (VAE) and a Conditional Variational Autoencoder (CVAE). Both models operate on peptide sequences encoded as fixed-length one-hot vectors, where each sequence position is represented over the 20 canonical amino acids. For a peptide of length $L$, the input dimensionality is therefore $20 \times L$.
+The objective of these models is to learn a structured latent representation of peptide sequences that can be sampled in order to generate new candidates. The VAE provides unconstrained generation based on the global training distribution, whereas the CVAE extends this framework by conditioning generation on physicochemical descriptors, enabling more directed design.
+\subsubsection{Variational Autoencoder}
+
+The VAE is a probabilistic generative model that learns to encode peptide sequences into a continuous latent space and decode latent samples back into amino acid sequences. Given an input peptide representation $x$, the encoder predicts the parameters of a Gaussian latent distribution:
+\begin{equation}
+q_{\phi}(z \mid x) = \mathcal{N}(\mu_{\phi}(x), \sigma_{\phi}^{2}(x)).
+\end{equation}
+
+A latent vector $z$ is then sampled using the reparameterization trick:
+\begin{equation}
+z = \mu + \sigma \odot \epsilon, \qquad \epsilon \sim \mathcal{N}(0, I),
+\end{equation}
+which allows gradients to propagate through the sampling step during training.
+
+In the implemented architecture, the encoder is a multilayer perceptron composed of linear layers, layer normalization, and ReLU activations. The output is split into two vectors corresponding to the latent mean and log-variance. The decoder is another multilayer perceptron of symmetric structure that maps the latent vector back to the original sequence space.
+
+Rather than reconstructing the sequence using a mean squared error loss, the decoder outputs raw logits for each amino acid at each sequence position. These logits are reshaped into categorical distributions over the 20 amino acids, and the reconstruction loss is computed using cross-entropy. This choice is more appropriate for peptide sequences, since amino acids are discrete categories rather than continuous values.
+
+The training objective combines reconstruction quality and latent regularization:
+\begin{equation}
+\mathcal{L}(x) = \mathcal{L}_{\text{recon}}(x, \hat{x}) + \beta \, D_{\text{KL}}\bigl(q_{\phi}(z \mid x)\, \|\, p(z)\bigr),
+\end{equation}
+where $p(z)=\mathcal{N}(0,I)$ is the prior distribution and $D_{\text{KL}}$ denotes the Kullback--Leibler divergence. In practice, the KL term is progressively increased during training through KL annealing in order to stabilize optimization and reduce posterior collapse at early epochs.
+
+The model is optimized with Adam, combined with cosine annealing of the learning rate and gradient clipping to improve training stability. During generation, latent vectors are sampled from the standard normal distribution and decoded into amino acid probability distributions. Sequence diversity is controlled through a temperature parameter applied before softmax sampling.
+
+\subsubsection{Conditional Variational Autoencoder}
+
+The CVAE extends the VAE by conditioning both encoding and decoding on an auxiliary vector $y$ describing target peptide properties. Instead of modeling only the unconditional peptide distribution, the CVAE learns a conditional distribution:
+\begin{equation}
+q_{\phi}(z \mid x, y), \qquad p_{\theta}(x \mid z, y).
+\end{equation}
+
+In the implemented model, the condition vector is concatenated with the peptide input before the encoder and concatenated again with the latent representation before the decoder. This architecture allows the model to generate peptides not only consistent with the training distribution, but also biased toward a specified physicochemical profile.
+
+The condition vector is constructed from a fixed ordered list of physicochemical descriptors:
+\begin{itemize}
+\item length,
+\item molecular weight,
+\item net charge at pH 5.5,
+\item isoelectric point,
+\item hydrophobicity,
+\item hydrophobic moment,
+\item logP,
+\item Boman index,
+\item number of hydrogen bond donors,
+\item number of hydrogen bond acceptors,
+\item topological polar surface area (TPSA).
+\end{itemize}
+
+Each property is encoded using two values corresponding to a minimum and maximum target.
+
+If only a scalar value is provided, the same value is used for both entries. Missing values are set to zero. The resulting vector is either padded with zeros or truncated in order to match the predefined conditioning dimensionality.
+
+This conditioning strategy enables the user to steer generation toward peptides with desired physicochemical characteristics. For example, the model can be guided toward sequences with a target range of charge, hydrophobicity, or molecular weight. In that sense, the CVAE is better suited than the VAE for directed peptide design.
+
+\subsubsection{Comparison Between VAE and CVAE}
+
+The VAE and CVAE serve related but distinct purposes. The VAE is an unconditional model: it learns the overall distribution of the training peptides and can sample novel sequences from this learned space. It is therefore useful for exploratory generation and for assessing whether the latent space captures relevant structural patterns in peptide sequences.
+
+By contrast, the CVAE introduces control over the generation process. Because the model is explicitly conditioned on target descriptors, it can be used to bias sampling toward peptides exhibiting specific physicochemical properties. This makes the CVAE more appropriate for inverse design settings, where the goal is not merely to generate plausible peptides, but to generate candidates with a desired profile.
+
+In summary, the VAE emphasizes diversity and distribution learning, whereas the CVAE emphasizes controllability and property-guided generation.
+
+\subsubsection{Physicochemical Conditioning}
+
+The physicochemical descriptors used by the CVAE can be computed from peptide sequences using the chemistry analysis module. These descriptors include molecular weight, charge, isoelectric point, hydrophobicity, hydrophobic moment, Boman index, and molecular descriptors derived from structure such as logP, hydrogen bond donor and acceptor counts, and TPSA.
+
+This link between the chemistry module and the generative model is important, because it provides a principled way to translate biochemical objectives into numerical conditioning variables. As a result, the CVAE can be integrated into a broader peptide design pipeline in which candidate peptides are generated, analyzed, and filtered according to downstream criteria.
+
+\subsubsection{Limitations}
+
+Several limitations must be acknowledged. First, the current implementation assumes fixed-length peptide inputs, since the one-hot encoding and decoder output dimensionality depend directly on sequence length. As a result, the model does not naturally support variable-length peptides without additional preprocessing or architectural changes.
+
+Second, the conditioning mechanism in the CVAE should be interpreted as a soft constraint rather than a hard constraint. The condition vector influences the probability distribution learned by the decoder, but it does not guarantee that every generated peptide will strictly satisfy the requested bounds. Consequently, an additional post-generation filtering step may still be necessary to enforce physicochemical thresholds.
+
+Third, the usefulness of the CVAE depends strongly on the quality and consistency of the condition labels used during training. If the model is trained on sequences that are not paired with meaningful physicochemical targets, the conditioning mechanism will not learn a reliable relationship between conditions and generated sequences.
+
+Finally, neither the VAE nor the CVAE directly predicts antimicrobial efficacy or biological activity. These models generate plausible peptide candidates from a learned sequence distribution, but downstream validation remains necessary to assess activity, selectivity, toxicity, and synthetic feasibility.
 
 \subsection{Chemistry Agent}\label{subsec:chemistry}
 The Chemistry Agent is the deterministic constraint-and-scoring stage of the pipeline. At a global level, it receives peptide sequences from the generator, evaluates them against user-defined physicochemical targets, and returns both a feasibility decision and a quantitative score used downstream by the orchestrator. The behavior of this agent is driven by a configurable target profile (ranges, target values, optional weights, and pH), which allows the same workflow to be reused under different experimental objectives.
 
-Its workflow can be summarized through three complementary functions:
+Its workflow can be summarized through three complementary parts:
 
 \noindent\textbf{1. Sanitization :}
 Generative models can hallucinate sequences that are syntactically correct but chemically invalid or unstable. The Chemistry Agent goes beyond simple string matching by attempting to instantiate a molecular graph for each sequence using the RDKit framework.
@@ -114,7 +192,7 @@ To characterize developability, the agent computes a configurable set of descrip
 
 \medskip
 \noindent\textbf{3. Quantitative Scoring and Adaptive Filtering :}
-The agent assigns each candidate a continuous score based on distance to target values, with optional per-property weighting. It then applies a two-step filtering policy: first keep peptides that satisfy all hard limits, then (if too few survive) refill the population with near-miss candidates that are closest to the target profile. This adaptive mechanism prevents early pipeline collapse while preserving optimization pressure.
+The agent assigns each candidate a continuous score based on distance to target values, with optional per-property weighting. Chemistry evaluation first computes per-peptide properties and in-limit status, then returns scored candidates to the orchestrator. At orchestration level, ranking prioritizes in-limit candidates; if none are available in a round, out-of-limit candidates are still forwarded for biological scoring to preserve loop continuity. This design prevents early pipeline collapse while maintaining selection pressure toward target profiles.
 \\
 
 The Chemist agent is the first called agent after the generator is used. It allows a first selection and analysis on the generated peptides list before sending them to the Biologist agent.

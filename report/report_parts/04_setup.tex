@@ -6,9 +6,13 @@ TODO: Describe the technical implementation (e.g., framework used, LLM endpoints
 \subsubsection{Biologist Agent Scoring}
 The objective is to rank a batch of peptides and identify which candidate is closest to the provided context (an existing peptide or requested properties represented as a reference embedding).
 
-The implementation uses ESM-2 embeddings (default: \texttt{facebook/esm2\_t12\_35M\_UR50D}) with attention-mask-aware mean pooling to produce one vector per peptide. We first tested cosine similarity between candidate and reference embeddings. In practice, cosine values were often too similar for short peptides in this protein-wide latent space, which reduced ranking contrast. We therefore switched to Euclidean distance, then normalized batch distances with a Z-score and mapped them to $[0,1]$ with a sigmoid.
+The implementation uses ESM-2 embeddings (by default:\url{facebook/esm2\_t12\_35M\_UR50D}) with attention-mask-aware mean pooling to produce one vector per peptide.
+
+We first tested cosine similarity between candidate and reference embeddings. In practice, cosine values were often too similar for short peptides in this protein-wide latent space, which reduced ranking contrast. We therefore switched to Euclidean distance, then normalized batch distances with a Z-score and mapped them to $[0,1]$ with a sigmoid.
 
 The resulting score is used for relative ranking inside each batch and for Top-$K$ selection by the orchestrator. It should be interpreted as a proxy signal to guide the search process, not as an absolute biological activity measurement.
+
+The implementation supports two ESM-2 proxy variants. A cosine-similarity variant maps embedding similarity to $[0,1]$, while a Global L2 variant computes Euclidean distance to a reference embedding and applies a batch-independent exponential mapping. The latter provides stable scores across batches and runs, which is beneficial for iterative ranking in the orchestrator.
 
 \subsubsection{Chemist Agent Scoring}
 
@@ -26,21 +30,23 @@ This strategy ensures a continuous flow of candidates to the Biology Agent while
 \end{itemize}
 
 \subsubsection{Orchestrator-Level Scoring and Ranking}
-TODO: Describe how the orchestrator combines outputs from expert agents (Biologist + Chemist), applies weighting or filtering rules, and computes the final ranking used for Top-$K$ selection.
+At orchestration level, each candidate receives a combined proxy score obtained by averaging Chemistry and Biology signals with equal weight:
+\begin{equation}
+S_{\text{combined}} = \frac{S_{\text{chem}} + S_{\text{bio}}}{2}.
+\end{equation}
+The ranking policy then prioritizes chemically admissible peptides (in-limits) and, within that constraint status, orders candidates by combined score (with expert scores used as tie-breakers). The orchestrator maintains this ranking globally across rounds, retaining one best entry per unique sequence and returning the final Top-$K$ from this global pool.
+
+In practical terms, this means candidate quality is not decided only round by round: a strong peptide discovered early can remain competitive at the end if later rounds do not surpass it.
 
 \subsection{Evaluation Metrics}\label{subsec:metrics}
 TODO: Define the metrics you tracked: Validity (\%), Diversity (distances/entropy/n-grams), and Constraint pass rates[cite: 25, 27, 28].
 
 \subsection{Baselines}\label{subsec:baselines}
 The baseline is designed as a simpler non-agentic reference to test whether the proposed multi-expert iterative pipeline provides measurable gains. Concretely, we use a standalone Conditional Variational Autoencoder (CVAE) that directly generates peptide candidates from conditioning features, without chemistry/bio critique loops and without orchestrated revision rounds.
+This baseline CVAE is trained on the dataset built with \path{database/get_data.py}. The extraction script queries DBAASP asynchronously and retains sequence-level and physicochemical fields used for conditioning (length, pH, molecular weight, logP, net charge, isoelectric point, hydrophobicity, and cationicity). 
 
-This baseline CVAE is trained on the dataset built with \texttt{database/get\_data.py}. The extraction script queries DBAASP asynchronously and retains sequence-level and physicochemical fields used for conditioning (length, pH, molecular weight, logP, net charge, isoelectric point, hydrophobicity, and cationicity). In practice, many API entries contain missing values for one or more properties. The baseline data pipeline therefore substitutes absent fields with fixed defaults before standardization. This dataset is thus not optimal from a data-quality perspective, but for a proof-of-concept objective we considered it sufficient to establish a consistent comparison point.
 
-From an implementation perspective, the baseline model is a GRU-based CVAE. The encoder embeds amino-acid tokens and maps sequence-condition pairs to latent Gaussian parameters; the decoder is autoregressive and conditioned on both latent code and property vector. Training uses cross-entropy reconstruction loss with KL regularization, Adam optimization, and a progressive KL weight (annealed $\beta$).
-
-At inference time, candidate peptides are sampled from the latent prior under a target condition vector (scaled with the training \texttt{StandardScaler}), with temperature and top-$k$ sampling to control exploration. This baseline serves only as the comparison anchor: unlike the full pipeline, it performs one-shot conditional generation and does not benefit from multi-agent feedback, constraint-aware iteration, or round-level refinement.
-
-\begin{figure*}[t]
+\begin{figure}[H]
 \centering
 \begin{tikzpicture}[
 	>=latex,
@@ -82,15 +88,15 @@ At inference time, candidate peptides are sampled from the latent prior under a 
 	inferArrow/.style={-{Stealth[length=3mm]}, thick, dotted, draw=purple!80!black}
 ]
 
-\node[dataBlock] (inputSeq) at (0, 0) {Input Sequence $x$\\ \scriptsize(Training)};
-\node[encStyle] (encoder) at (4, 0) {Encoder\\ \scriptsize(Embedding + GRU)};
-\node[latentStyle] (latent) at (8, 0) {Latent \\ \scriptsize$z=\mu+\sigma\odot\epsilon$};
-\node[decStyle] (decoder) at (12, 0) {Decoder\\ \scriptsize(Autoregressive GRU)};
-\node[outStyle] (outputSeq) at (16, 0) {Generated\\ peptide $\hat{x}$};
+\node[dataBlock] (inputSeq) at (-6, 0) {Input Sequence $x$\\ \scriptsize(Training)};
+\node[encStyle] (encoder) at (-3, 0) {Encoder\\ \scriptsize(Embedding + GRU)};
+\node[latentStyle] (latent) at (0, 0) {Latent \\ \scriptsize$z=\mu+\sigma\odot\epsilon$};
+\node[decStyle] (decoder) at (3, 0) {Decoder\\ \scriptsize(Autoregressive GRU)};
+\node[outStyle] (outputSeq) at (6, 0) {Generated\\ peptide $\hat{x}$};
 
-\node[condBlock] (condition) at (8, -2.5) {\textbf{Condition vector} $c$\\ \scriptsize [length, pH, MW, logP, net charge, isoP, hydrophobicity, cationicity]};
+\node[condBlock] (condition) at (0, -2.5) {\textbf{Condition vector} $c$\\ \scriptsize [length, pH, MW, logP, net charge, isoP, hydrophobicity, cationicity]};
 
-\node[dataBlock, draw=purple!60, fill=purple!5] (noise) at (8, 2.5) {Prior sample\\ $\mathcal{N}(0, I)$\\ \scriptsize(Inference)};
+\node[dataBlock, draw=purple!60, fill=purple!5] (noise) at (0, 2.5) {Prior sample\\ $\mathcal{N}(0, I)$\\ \scriptsize(Inference)};
 
 \draw[flowArrow] (inputSeq) -- (encoder);
 \draw[flowArrow] (encoder) -- (latent);
@@ -102,7 +108,16 @@ At inference time, candidate peptides are sampled from the latent prior under a 
 
 \draw[inferArrow] (noise) -- (latent);
 
+% Symmetric bounding box to enforce true horizontal centering.
+\pgfresetboundingbox
+\path (-6.025, -3.3) rectangle (7.8, 2.8);
+
 \end{tikzpicture}
 \caption{Baseline CVAE architecture used for comparison. During training, the model learns $q_{\phi}(z\mid x,c)$ and reconstructs sequences with an autoregressive decoder conditioned on $z$ and $c$. During inference, peptides are generated by sampling $z\sim\mathcal{N}(0,I)$ and decoding once, without iterative multi-agent feedback.}
 \label{fig:baseline_cvae}
-\end{figure*}
+\end{figure}
+
+
+In practice, many API entries contain missing values for one or more properties. The baseline data pipeline therefore substitutes absent fields with fixed defaults before standardization. This dataset is thus not optimal from a data-quality perspective, but for a proof-of-concept objective we considered it sufficient to establish a consistent comparison point.
+From an implementation perspective, the baseline model is a GRU-based CVAE. The encoder embeds amino-acid tokens and maps sequence-condition pairs to latent Gaussian parameters; the decoder is autoregressive and conditioned on both latent code and property vector. Training uses cross-entropy reconstruction loss with KL regularization, Adam optimization, and a progressive KL weight (annealed $\beta$).
+At inference time, candidate peptides are sampled from the latent prior under a target condition vector (scaled with the training \texttt{StandardScaler}), with temperature and top-$k$ sampling to control exploration. This baseline serves only as the comparison anchor: unlike the full pipeline, it performs one-shot conditional generation and does not benefit from multi-agent feedback, constraint-aware iteration, or round-level refinement.
