@@ -49,43 +49,43 @@ This baseline CVAE is trained on the dataset built with \path{database/get_data.
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}[
-	>=latex,
-	modelBlock/.style={
-		rectangle,
-		thick,
-		minimum width=3cm,
-		minimum height=1.5cm,
-		align=center,
-		font=\sffamily\bfseries,
-		rounded corners=2pt
-	},
-	dataBlock/.style={
-		rectangle,
-		thick, dashed,
-		minimum width=2.5cm,
-		minimum height=1cm,
-		align=center,
-		font=\sffamily\footnotesize,
-		rounded corners=2pt,
-		fill=gray!5, draw=gray!60
-	},
-	condBlock/.style={
-		rectangle,
-		thick,
-		minimum width=6.6cm,
-		minimum height=1.2cm,
-		align=center,
-		font=\sffamily\footnotesize,
-		rounded corners=2pt,
-		fill=orange!10, draw=orange!80!black
-	},
-	encStyle/.style={modelBlock, fill=blue!10, draw=blue!80!black},
-	decStyle/.style={modelBlock, fill=green!10, draw=green!80!black},
-	latentStyle/.style={modelBlock, fill=purple!10, draw=purple!80!black, minimum width=2.7cm},
-	outStyle/.style={dataBlock, solid, fill=yellow!15, draw=yellow!60!black},
-	flowArrow/.style={-{Stealth[length=3mm]}, thick, draw=black!90},
-	condArrow/.style={-{Stealth[length=3mm]}, thick, draw=orange!90!black},
-	inferArrow/.style={-{Stealth[length=3mm]}, thick, dotted, draw=purple!80!black}
+    >=latex,
+    modelBlock/.style={
+        rectangle,
+        thick,
+        minimum width=3cm,
+        minimum height=1.5cm,
+        align=center,
+        font=\sffamily\bfseries,
+        rounded corners=2pt
+    },
+    dataBlock/.style={
+        rectangle,
+        thick, dashed,
+        minimum width=2.5cm,
+        minimum height=1cm,
+        align=center,
+        font=\sffamily\footnotesize,
+        rounded corners=2pt,
+        fill=gray!5, draw=gray!60
+    },
+    condBlock/.style={
+        rectangle,
+        thick,
+        minimum width=4.5cm, % <--- Reduced from 6.6cm
+        minimum height=1.2cm,
+        align=center,
+        font=\sffamily\footnotesize,
+        rounded corners=2pt,
+        fill=orange!10, draw=orange!80!black
+    },
+    encStyle/.style={modelBlock, fill=blue!10, draw=blue!80!black},
+    decStyle/.style={modelBlock, fill=green!10, draw=green!80!black},
+    latentStyle/.style={modelBlock, fill=purple!10, draw=purple!80!black, minimum width=2.7cm},
+    outStyle/.style={dataBlock, solid, fill=yellow!15, draw=yellow!60!black},
+    flowArrow/.style={-{Stealth[length=3mm]}, thick, draw=black!90},
+    condArrow/.style={-{Stealth[length=3mm]}, thick, draw=orange!90!black},
+    inferArrow/.style={-{Stealth[length=3mm]}, thick, dotted, draw=purple!80!black}
 ]
 
 \node[dataBlock] (inputSeq) at (-6, 0) {Input Sequence $x$\\ \scriptsize(Training)};
@@ -94,7 +94,8 @@ This baseline CVAE is trained on the dataset built with \path{database/get_data.
 \node[decStyle] (decoder) at (3, 0) {Decoder\\ \scriptsize(Autoregressive GRU)};
 \node[outStyle] (outputSeq) at (6, 0) {Generated\\ peptide $\hat{x}$};
 
-\node[condBlock] (condition) at (0, -2.5) {\textbf{Condition vector} $c$\\ \scriptsize [length, pH, MW, logP, net charge, isoP, hydrophobicity, cationicity]};
+% Added a line break (\\) after "net charge,"
+\node[condBlock] (condition) at (0, -2.5) {\textbf{Condition vector} $c$\\ \scriptsize [length, pH, MW, logP, net charge, \\ isoP, hydrophobicity, cationicity]};
 
 \node[dataBlock, draw=purple!60, fill=purple!5] (noise) at (0, 2.5) {Prior sample\\ $\mathcal{N}(0, I)$\\ \scriptsize(Inference)};
 
