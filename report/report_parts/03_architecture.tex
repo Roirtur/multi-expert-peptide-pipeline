@@ -73,19 +73,18 @@ The global pipeline is organized around three specialized agents coordinated by 
 The Orchestrator is the control layer that turns the three experts into a single iterative optimization system. 
 Its role is to enforce a fixed sequence of operations:
 \begin{enumerate}
-	\item Request a batch of candidates from the Generator (if not given when originally called)
-	\item Pass this batch through the Chemistry Agent to keep only chemically admissible peptides and associated proxy descriptors, and  send the surviving candidates to the Biology Agent for biological scoring. 
-	\item Based on these expert outputs, the Orchestrator ranks candidates, keeps the Top-$K$ subset, and uses this subset as the seed for the next generation cycle.
+	\item Generate a batch of candidates from target constraints (user-provided or inferred from the chemistry configuration).
+	\item Pass this batch through the Chemistry Agent to keep chemically admissible peptides and associated proxy descriptors; if no candidate is in-limits, the batch is still forwarded for biological scoring to avoid collapsing the loop.
+	\item Based on these expert outputs, the Orchestrator builds a global ranking of unique peptides across rounds, keeps the Top-$K$ output at the end, and uses top-ranked candidates as parents for the next generation cycle.
 \end{enumerate}
 In this way, each iteration combines exploration (new proposals) and exploitation (retaining best current candidates) under one consistent decision policy.
-The stopping criterias are handled at the orchestration level rather than inside each expert module. \\In practice, the loop can stop when :
+The stopping criterias are handled at the orchestration level rather than inside each expert module. \\In practice, the loop is driven by a fixed iteration budget; when an intermediate stage fails for a given round (for example no usable candidates), the run continues to the next round:
 \begin{itemize}
 	\item A maximum number of iterations is reached
-	\item No valid candidates survive the chemistry gate
-	\item The optimization objective is considered stable enough according to user-configured run settings (for example fixed Top-$K$, batch size, and iteration budget)
-	%TODO UPDATE APRES LA PR DE L'ORCHESTRATOR
+	\item Some rounds may contribute no candidates to the global ranking because generation or filtering yields no usable sequences
 \end{itemize}
 This implementation allows reproducible exepimentations : changing run behavior only requires updating orchestrator-level parameters, there is no need to change the experts.
+Compared to the previous global behavior, two points are now explicit: the process keeps a global best-by-sequence pool across all rounds (instead of only round-local selection), and chemistry out-of-limits candidates can still be biologically scored when no in-limits candidates exist.
 This agent also provides traceability by recording round-wise pipeline events and outcomes:
 \begin{itemize}
 	\item Input settings
@@ -148,10 +147,8 @@ The condition vector is constructed from a fixed ordered list of physicochemical
 \item topological polar surface area (TPSA).
 \end{itemize}
 
-Each property is encoded using two values corresponding to a minimum and maximum target:
-\begin{equation}
-[\text{min}, \text{max}].
-\end{equation}
+Each property is encoded using two values corresponding to a minimum and maximum target.
+
 If only a scalar value is provided, the same value is used for both entries. Missing values are set to zero. The resulting vector is either padded with zeros or truncated in order to match the predefined conditioning dimensionality.
 
 This conditioning strategy enables the user to steer generation toward peptides with desired physicochemical characteristics. For example, the model can be guided toward sequences with a target range of charge, hydrophobicity, or molecular weight. In that sense, the CVAE is better suited than the VAE for directed peptide design.
@@ -183,7 +180,7 @@ Finally, neither the VAE nor the CVAE directly predicts antimicrobial efficacy o
 \subsection{Chemistry Agent}\label{subsec:chemistry}
 The Chemistry Agent is the deterministic constraint-and-scoring stage of the pipeline. At a global level, it receives peptide sequences from the generator, evaluates them against user-defined physicochemical targets, and returns both a feasibility decision and a quantitative score used downstream by the orchestrator. The behavior of this agent is driven by a configurable target profile (ranges, target values, optional weights, and pH), which allows the same workflow to be reused under different experimental objectives.
 
-Its workflow can be summarized through three complementary functions:
+Its workflow can be summarized through three complementary parts:
 
 \noindent\textbf{1. Sanitization :}
 Generative models can hallucinate sequences that are syntactically correct but chemically invalid or unstable. The Chemistry Agent goes beyond simple string matching by attempting to instantiate a molecular graph for each sequence using the RDKit framework.
@@ -195,7 +192,7 @@ To characterize developability, the agent computes a configurable set of descrip
 
 \medskip
 \noindent\textbf{3. Quantitative Scoring and Adaptive Filtering :}
-The agent assigns each candidate a continuous score based on distance to target values, with optional per-property weighting. It then applies a two-step filtering policy: first keep peptides that satisfy all hard limits, then (if too few survive) refill the population with near-miss candidates that are closest to the target profile. This adaptive mechanism prevents early pipeline collapse while preserving optimization pressure.
+The agent assigns each candidate a continuous score based on distance to target values, with optional per-property weighting. Chemistry evaluation first computes per-peptide properties and in-limit status, then returns scored candidates to the orchestrator. At orchestration level, ranking prioritizes in-limit candidates; if none are available in a round, out-of-limit candidates are still forwarded for biological scoring to preserve loop continuity. This design prevents early pipeline collapse while maintaining selection pressure toward target profiles.
 \\
 
 The Chemist agent is the first called agent after the generator is used. It allows a first selection and analysis on the generated peptides list before sending them to the Biologist agent.

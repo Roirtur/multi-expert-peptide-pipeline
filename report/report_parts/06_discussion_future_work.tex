@@ -5,6 +5,11 @@ Trough the whole filtering and scoring process by the agent, the computed scores
 The SMILES format is also very popular as its offer better topological information on the peptide, therefore we could be interested in gathering data from it, in addition to the current format.
 Unfortunately, our current lack of knowledge on the subject doesn't allow us to be certain about how this additional data could impact our scoring system and the overall pipeline.
 
+\subsection{LLM usage for input}
+Initially, we considered using a large language model to guide peptide selection by training it to understand and communicate preferences about desired peptide characteristics. 
+This approach could have provided an intuitive interface for specifying optimization targets and constraints.
+This LLM-based input method remains a promising avenue for future work, particularly for enhancing the usability and flexibility of the system when dealing with complex or evolving biological requirements.
+
 \subsection{Future Work: Peptide-Specific Biological Scoring}\label{subsec:future_biologist}
 The main improvement is to replace the current proxy with a model trained (or fine-tuned) specifically on peptides. Ideally, this model should score or classify a peptide conditionally on a target (or target-related context), instead of relying on a general protein-space similarity signal.
 
