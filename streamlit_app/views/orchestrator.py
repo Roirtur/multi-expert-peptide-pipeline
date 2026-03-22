@@ -1,18 +1,17 @@
 import streamlit as st
 import pandas as pd
 import json
-import os
 from pydantic import ValidationError
 from pathlib import Path
 import base64
 from streamlit_app.utils import (
     highlight_error_card, parse_chemist_input, setup_streamlit_logger,
     render_chemist_form, get_available_models, instantiate_generator,
-    instantiate_biologist, generators_config, biologists_config, config_data
+    instantiate_biologist, generators_config, biologists_config
 )
-from peptide_pipeline.orchestrator.orchestrator import Orchestrator
-from peptide_pipeline.chemist.agent_v1.chemist_agent import ChemistAgent
-from peptide_pipeline.chemist.agent_v1.config_chemist import ChemistConfig
+from peptide_pipeline.orchestrator.orchestrator_agent.orchestrator import Orchestrator
+from peptide_pipeline.chemist.chemist_agent.chemist_agent import ChemistAgent
+from peptide_pipeline.chemist.chemist_agent.config_chemist import ChemistConfig
 
 def render():
     icon_path = Path(__file__).resolve().parents[1] / "icons" / "pipeline.svg"
@@ -52,7 +51,7 @@ def render():
             with st.expander("⚙️ CVAE Base Conditioning Constraints", expanded=True):
                 st.markdown("Set default base generator conditions. Overridden by actual *Targets* in the Chemist tab if provided.")
                 try:
-                    from peptide_pipeline.generator.cvae_generator import constraints_default
+                    from peptide_pipeline.generator.cvae_generator_agent.cvae_generator import constraints_default
                     cols_cvae = st.columns(2)
                     for idx, key in enumerate(constraints_default.keys()):
                         with cols_cvae[idx % 2]:
