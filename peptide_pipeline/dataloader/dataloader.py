@@ -2,8 +2,7 @@ import csv
 import sys
 import os
 import pandas as pd
-import torch
-from typing import List, Any, Optional
+from typing import List, Optional
 from base import BaseDataLoader
 import re
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
