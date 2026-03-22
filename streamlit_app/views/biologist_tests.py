@@ -1,13 +1,29 @@
 import streamlit as st
 import pandas as pd
+import json
+import os
+from pathlib import Path
+from pydantic import ValidationError
+import base64
 
 from streamlit_app.utils import (
     setup_streamlit_logger, instantiate_biologist, biologists_config
 )
 
 def render():
-    st.title("🧫 Biologist Tests")
-    st.markdown("Evaluate peptide activity using a biologist expert")
+    icon_path = Path(__file__).resolve().parents[1] / "icons" / "biologist.svg"
+    icon_b64 = base64.b64encode(icon_path.read_bytes()).decode("utf-8")
+
+    st.markdown(
+        f"""
+        <div style="text-align:center; margin-top: 0.5rem; margin-bottom: 1rem;">
+            <img src="data:image/svg+xml;base64,{icon_b64}" width="100" />
+            <h1 style="margin: 0.25rem 0 0 0;">Biologist</h1>
+            <p style="margin: 0.25rem 0 0 0;">Evaluate peptide activity using a biologist expert</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     
     st.header("Setup Reference")
     ref_seq = st.text_input("Reference Target Sequence", value="MLYK")

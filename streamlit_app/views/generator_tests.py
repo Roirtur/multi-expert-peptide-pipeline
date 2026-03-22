@@ -1,5 +1,10 @@
 import streamlit as st
 import pandas as pd
+import json
+import os
+from pydantic import ValidationError
+from pathlib import Path
+import base64
 
 from streamlit_app.utils import (
     setup_streamlit_logger, get_available_models, instantiate_generator,
@@ -7,9 +12,20 @@ from streamlit_app.utils import (
 )
 
 def render():
-    st.title("🧪 Generator Tests")
-    st.markdown("Test the generation models in isolation to see what sequences they produce without constraints filtering.")
-    
+    icon_path = Path(__file__).resolve().parents[1] / "icons" / "generator.svg"
+    icon_b64 = base64.b64encode(icon_path.read_bytes()).decode("utf-8")
+
+    st.markdown(
+        f"""
+        <div style="text-align:center; margin-top: 0.5rem; margin-bottom: 1rem;">
+            <img src="data:image/svg+xml;base64,{icon_b64}" width="100" />
+            <h1 style="margin: 0.25rem 0 0 0;">Generator</h1>
+            <p style="margin: 0.25rem 0 0 0;">Test the generation models in isolation to see what sequences they produce without constraints filtering.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     st.header("Setup Model")
     selected_gen_test = st.selectbox("Select Generator Model", list(generators_config.keys()))
     gen_info = generators_config[selected_gen_test]
