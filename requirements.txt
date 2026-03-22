@@ -9,3 +9,4 @@ textual
 torch
 transformers
 streamlit
+streamlit_option_menu
