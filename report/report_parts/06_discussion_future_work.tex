@@ -1,5 +1,8 @@
 \section{Discussion \& Future Work}\label{sec:discussion}
 
+\subsection{Domain Feedback and Scope Clarification}
+Expert feedback sharpens the scope of this work: chemistry-side outputs are considered feasible by the chemist, while the biologist confirms that biological validity cannot be claimed without experimental assays. Accordingly, we frame the current system as a robust \textit{in silico} optimization proof of concept.
+
 \subsection{Chemist agent improvement}
 In the current implementation, chemistry filtering and scoring are computed directly from peptide sequences.
 An extension could incorporate richer molecular representations (for example SMILES-derived descriptors) as additional conditioning and scoring signals.
@@ -11,7 +14,7 @@ This approach could have provided an intuitive interface for specifying optimiza
 This LLM-based input method remains a promising avenue for future work, particularly for enhancing the usability and flexibility of the system when dealing with complex or evolving biological requirements.
 
 \subsection{Peptide-Specific Biological Scoring}\label{subsec:future_biologist}
-Domain feedback from the biologist highlighted a central limitation of the current study: biological accuracy cannot be validated without experimental assays. In other words, the present biology signal is useful for optimization guidance, but it is not a biological ground truth.
+The current biology signal is useful for optimization guidance, but it is not a biological ground truth.
 
 The main improvement is therefore to replace the current proxy with a model trained (or fine-tuned) specifically on peptides and supported by peptide-level validation data. Ideally, this model should score or classify a peptide conditionally on a target (or target-related context), instead of relying on a general protein-space similarity signal.
 

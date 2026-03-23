@@ -77,3 +77,9 @@ For runtime comparison between pipeline and baseline, interpretation must be don
 On quality, Figure~\ref{fig:score_per_target_length} shows a clear regime split by target length. For larger targets, the two approaches are close (near tie), while for smaller targets the pipeline is clearly better on combined score. This is consistent with the idea that iterative critique and revision are most useful in harder settings, where one-shot generation struggles to find strong candidates.
 
 On diversity, Figure~\ref{fig:unique_count} highlights an even stronger difference. The pipeline keeps a high number of unique sequences and near-zero duplication across target lengths. The baseline, in contrast, produces substantially more duplicates, and this effect becomes severe for short targets (high duplicate rate and very low unique-count). Practically, this means the agentic loop improves not only ranking quality but also exploration of sequence space.
+
+\subsection{Domain Expert Feedback and Interpretation}\label{subsec:expert_feedback}
+
+Beyond quantitative metrics, domain feedback supports the same interpretation. The chemist considered the generated peptides feasible and their property ranges coherent with the intended design space, consistent with the in-limits profiles observed in our runs.
+
+The biologist emphasized that biological accuracy cannot be confirmed without experimental assays. We therefore interpret the biology score as a ranking proxy, while the current system remains a proof of concept with strong engineering potential.

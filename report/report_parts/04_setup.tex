@@ -10,7 +10,7 @@ The biologist module uses ESM-2 embeddings (default: \url{facebook/esm2\_t12\_35
 
 Two proxy variants are implemented. The first uses cosine similarity, mapped to $[0,1]$. The second (Global L2) computes Euclidean distance to a reference embedding and applies a batch-independent exponential mapping. In preliminary tests, cosine scores showed limited contrast for short peptides, so the Global L2 variant was preferred for iterative ranking.
 
-The resulting score is used by the orchestrator for candidate ranking and Top-$K$ selection. It is treated as a proxy signal to guide search, not as an absolute biological activity measurement.
+The resulting score is used by the orchestrator for candidate ranking and Top-$K$ selection. It is treated as a proxy signal to guide search, not as an absolute biological activity measurement; biological validity would require peptide-level experimental assays.
 
 \subsubsection{Chemist Agent Scoring}
 
