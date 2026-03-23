@@ -216,11 +216,7 @@ database/*.json
 *.pth
 
 #report files
-report/.aux
-report/.fdb_latexmk
-report/.fls
-report/.log
-report/.synctex.gz
+report/*
 
 experiments/*.csv
 
@@ -231,3 +227,10 @@ diapo/*
 !diapo/*.pdf
 !diapo/images
 !diapo/sections
+!report/*.pdf
+!report/*.tex
+!report/*.bib
+!report/*png
+
+
+experiments/*.csv

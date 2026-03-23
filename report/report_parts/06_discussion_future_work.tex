@@ -1,0 +1,24 @@
+\section{Discussion \& Future Work}\label{sec:discussion}
+
+\subsection{Domain Feedback and Scope Clarification}
+Overall, expert feedback is consistent with the quantitative results and helps clarify the scope of our claims. Chemistry-side outputs are considered feasible within the configured design space, whereas biological efficacy cannot be established without wet-lab assays. Accordingly, the current system should be interpreted as a robust \textit{in silico} optimization proof of concept.
+
+\subsection{Current Generator Limitations}
+At generator level, two limitations remain important for interpretation.
+
+First, generation assumes fixed-length peptide inputs because one-hot encoding and decoder output size depend directly on sequence length. Supporting variable-length peptides would require architectural changes or additional preprocessing.
+
+Second, conditioning quality depends on label quality. If training targets are noisy, missing, or weakly informative, the learned relation between requested properties and generated sequences becomes unstable, which reduces controllability at inference time.
+
+\subsection{Chemist Agent Improvements}
+Current chemistry filtering and scoring are sequence-derived. A natural extension is to incorporate richer molecular representations (for example SMILES-derived descriptors) as additional conditioning and evaluation signals. This direction would require dedicated preprocessing, careful descriptor selection, and retraining so that conditioning variables and chemistry constraints remain consistent.
+
+\subsection{LLM-Guided Input Specification}
+Another promising direction is to use a large language model as an interface layer for target specification. Instead of manually setting every constraint, users could express design objectives in natural language and map them to structured optimization settings. This could improve usability and make iterative design more flexible when requirements evolve.
+
+\subsection{Peptide-Specific Biological Scoring}\label{subsec:future_biologist}
+The most impactful upgrade is on the biology side. The current ESM-based proxy is useful for ranking, but it is not biological ground truth. Replacing it with a peptide-specialized, target-conditioned predictor trained (or fine-tuned) on peptide-level validation data would directly improve ranking reliability.
+
+Beyond a single scalar score, such a model could provide richer outputs (for example expected activity and risk-related signals), making optimization decisions more informative. Although this is a substantial research effort, it remains the clearest path toward stronger biological relevance in future versions of the pipeline.
+
+Another issue with the biological evaluation is the differences between well known strains and unstudied ones. The currents models are trained on a limited set of bacterial species, which may not generalize well to novel or less-characterized pathogens. The models existing as of now are not great at extrapolating to new or unknown species, which is a problem for real-world applications where emerging pathogens are common.
