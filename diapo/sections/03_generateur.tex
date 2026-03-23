@@ -1,0 +1,18 @@
+\section{Expert Générateur de peptides}
+\begin{frame}
+    \frametitle{Générateur}
+    \begin{block}{Modèle du générateur}
+        \begin{itemize}
+        \item Modèle générant des séquences de peptides à partir de séquence ou propriétés souhaitées
+        \item Entraîné sur une base de données de peptides connus et leurs propriétés
+        \item Capable de générer des peptides avec des propriétés spécifiques (ex: propriétés chimiques)
+        \end{itemize}
+    \end{block}
+    
+    \begin{block}{Modèles implémentés}
+        \begin{itemize}
+        \item VAE (Variational Autoencoder) : apprend une représentation latente des peptides et génère de nouvelles séquences à partir de cette représentation
+        \item CVAE (Conditional Variational Autoencoder) : extension du VAE qui conditionne la génération sur des propriétés spécifiques (propritétés physico-chimiques, activité biologique)
+    \end{itemize}
+    \end{block}
+\end{frame}

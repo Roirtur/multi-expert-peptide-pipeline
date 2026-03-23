@@ -1,0 +1,79 @@
+\documentclass[10pt, aspectratio=169]{beamer}
+
+% Packages requis
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[french]{babel}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{tikz}
+\usepackage{}
+\usetikzlibrary{shapes, arrows.meta, positioning, calc, chains, shadows, fit}
+\usepackage{caption}
+
+% --- Configuration du Thème (Style Université de Bordeaux) ---
+\usetheme{Madrid}
+\usecolortheme{dolphin}
+
+% Définition des couleurs approximatives de l'Université de Bordeaux
+\definecolor{UnivBlue}{RGB}{0, 51, 102}   % Bleu fonce
+\definecolor{UnivRed}{RGB}{153, 0, 0}     % Rouge/Bordeaux
+\definecolor{LayerBlue}{RGB}{200, 220, 255}
+\definecolor{LayerRed}{RGB}{255, 200, 200}
+\definecolor{LayerGreen}{RGB}{200, 255, 200}
+\definecolor{LayerYellow}{RGB}{255, 255, 200}
+
+% Application des couleurs
+\setbeamercolor{structure}{fg=UnivBlue}
+\setbeamercolor{palette primary}{bg=UnivBlue, fg=white}
+\setbeamercolor{palette secondary}{bg=UnivBlue!80, fg=white}
+\setbeamercolor{palette tertiary}{bg=UnivBlue!60, fg=white}
+\setbeamercolor{frametitle}{bg=UnivBlue, fg=white}
+\setbeamercolor{title}{bg=UnivBlue, fg=white}
+\setbeamercolor{block title}{bg=UnivBlue, fg=white}
+\setbeamercolor{alerted text}{fg=UnivRed}
+
+% --- Styles TikZ pour les architectures ---
+\tikzset{
+    block/.style={rectangle, draw, fill=white, align=center, rounded corners, drop shadow, font=\scriptsize},
+    conv/.style={block, fill=LayerBlue, minimum height=2em},
+    pool/.style={block, fill=LayerRed, minimum height=1.5em},
+    dense/.style={block, fill=LayerGreen, minimum height=2em},
+    op/.style={circle, draw, fill=LayerYellow, inner sep=1pt, font=\tiny},
+    arrow/.style={-{Stealth[scale=1.0]}, thick, color=UnivBlue},
+    label/.style={font=\tiny, color=gray}
+}
+
+% --- Informations de la présentation ---
+\title[multi-expert-peptide-pipeline]{ Multi Expert Peptide Pipeline}
+\subtitle{Projet de fin d'études}
+\author[N.F \& E.I \& A.M \& N.R]{Nathan Fitger \and Eduard Iliescu \and Arthur Macdonald \and Niels Roudeau}
+\institute[Université de Bordeaux]{
+    Université de Bordeaux \\
+    Master 2 Informatique - Intelligence Artificielle
+}
+\date{Année 2025-2026}
+
+% Define custom minimize command
+\newcommand{\minimize}[1]{\textit{\footnotesize #1}}
+
+% Logo Placeholder
+\titlegraphic{
+    \includegraphics[width=3cm]{ubordeaux.png}
+}
+
+\begin{document}
+
+\input{sections/00_intro}
+\input{sections/01_contexte}
+\input{sections/02_architecture}
+\input{sections/03_generateur}
+\input{sections/04_chimiste}
+\input{sections/05_biologiste}
+\input{sections/06_resultats}
+\input{sections/07_limitations}
+\input{sections/08_conclusion}
+
+\end{document}
