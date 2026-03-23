@@ -45,11 +45,19 @@ class ESMBiologistCos(BaseBiologist):
         else:
             self.device = device
 
+        self.logger.debug(f"Initializing ESMBiologistCos with model {model_name} on device {device} and batch size {batch_size}")
+        self.logger.debug(f"Reference peptide: {reference_peptide}")
+
+        self.logger.debug("Loading ESM model and tokenizer...")
         token = hf_token or os.environ.get("HF_TOKEN")
 
         # Load tokeniser and model
+        self.logger.debug(f"loading tokenizer for {model_name}")
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, token=token)
+        self.logger.debug(f"Tokenizer loaded. Vocabulary size: {len(self.tokenizer)}")
+        self.logger.debug(f"loading model for {model_name}")
         self.model = AutoModel.from_pretrained(model_name, token=token)
+        self.logger.debug("ESM model and tokenizer loaded.")
         self.model.eval()
         self.model.to(self.device)
 
@@ -57,6 +65,7 @@ class ESMBiologistCos(BaseBiologist):
         self._reference_embedding: torch.Tensor = self._embed_sequences(
             [reference_peptide]
         )[0]
+        self.logger.debug(f"Biologist {model_name} initialized with reference peptide embedding.")
 
     def _embed_sequences(self, sequences: List[str]) -> torch.Tensor:
         """
@@ -91,7 +100,7 @@ class ESMBiologistCos(BaseBiologist):
             mean_pooled = sum_hidden / sum_mask                       # (batch, hidden_dim)
 
             all_embeddings.append(mean_pooled.cpu())
-
+            self.logger.debug(f"Embedded batch {i // self.batch_size + 1}: {len(batch)} sequences, resulting in embeddings of shape {mean_pooled.shape}")
         return torch.cat(all_embeddings, dim=0)  # (N, hidden_dim)
 
     @staticmethod
@@ -117,7 +126,7 @@ class ESMBiologistCos(BaseBiologist):
         cosine_scores = F.cosine_similarity(
             candidate_embeddings, ref_expanded, dim=1
         )
-
+        self.logger.debug(f"Scored {len(peptides)} peptides. Cosine scores (first 5): {cosine_scores[:5].tolist()}")
         return self._cosine_to_01(cosine_scores)
 
     def predict_activity(
@@ -133,8 +142,9 @@ class ESMBiologistCos(BaseBiologist):
             self._reference_embedding = self._embed_sequences([context])[0]
             scores = self.score_peptides(peptides)
             self._reference_embedding = original_ref
+            self.logger.debug(f"Context provided: '{context}'. Temporarily updated reference embedding for scoring.")
             return scores
-
+        self.logger.debug("No context provided, using default reference peptide for scoring.")
         return self.score_peptides(peptides)
 
     def __repr__(self) -> str:

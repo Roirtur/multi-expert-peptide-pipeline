@@ -1,22 +1,33 @@
 import streamlit as st
 import pandas as pd
 import json
-import os
 from pydantic import ValidationError
-
+from pathlib import Path
+import base64
 from streamlit_app.utils import (
     highlight_error_card, parse_chemist_input, setup_streamlit_logger,
     render_chemist_form, get_available_models, instantiate_generator,
-    instantiate_biologist, generators_config, biologists_config, config_data
+    instantiate_biologist, generators_config, biologists_config
 )
-from peptide_pipeline.orchestrator.orchestrator import Orchestrator
-from peptide_pipeline.chemist.agent_v1.chemist_agent import ChemistAgent
-from peptide_pipeline.chemist.agent_v1.config_chemist import ChemistConfig
+from peptide_pipeline.orchestrator.orchestrator_agent.orchestrator import Orchestrator
+from peptide_pipeline.chemist.chemist_agent.chemist_agent import ChemistAgent
+from peptide_pipeline.chemist.chemist_agent.config_chemist import ChemistConfig
 
 def render():
-    st.title("🧬 Multi-Expert Peptide Pipeline Orchestrator")
-    st.markdown("Configure the pipeline once and run it. The properties are distributed to the Generator, Chemist, and Biologist below.")
-    
+    icon_path = Path(__file__).resolve().parents[1] / "icons" / "pipeline.svg"
+    icon_b64 = base64.b64encode(icon_path.read_bytes()).decode("utf-8")
+
+    st.markdown(
+        f"""
+        <div style="text-align:center; margin-top: 0.5rem; margin-bottom: 1rem;">
+            <img src="data:image/svg+xml;base64,{icon_b64}" width="100" />
+            <h1 style="margin: 0.25rem 0 0 0;">Orchestrator</h1>
+            <p style="margin: 0.25rem 0 0 0;">Configure the pipeline once and run it. The properties are distributed to the Generator, Chemist, and Biologist below.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     st.header("1. Global Parameters")
     reference_sequence = st.text_input(
         "Reference Peptide Sequence (Used by Biologist & Base Sequence)", 
@@ -40,7 +51,7 @@ def render():
             with st.expander("⚙️ CVAE Base Conditioning Constraints", expanded=True):
                 st.markdown("Set default base generator conditions. Overridden by actual *Targets* in the Chemist tab if provided.")
                 try:
-                    from peptide_pipeline.generator.cvae_generator import constraints_default
+                    from peptide_pipeline.generator.cvae_generator_agent.cvae_generator import constraints_default
                     cols_cvae = st.columns(2)
                     for idx, key in enumerate(constraints_default.keys()):
                         with cols_cvae[idx % 2]:
@@ -50,6 +61,9 @@ def render():
                 except ImportError:
                     st.warning("Could not load CVAE constraints_default from cvae_generator.py")
     
+        
+    
+    with col_right:
         st.header("3. Biologist Setup")
         selected_bio_orch = st.selectbox("Select Biologist Model", list(biologists_config.keys()))
         bio_info = biologists_config[selected_bio_orch]
@@ -66,8 +80,7 @@ def render():
                     bio_params_vals[param["id"]] = st.text_input(
                         param["label"], value=str(param["default"]), key=f"orch_bio_{param['id']}"
                     )
-    
-    with col_right:
+                    
         st.header("4. Chemist Constraints")
         st.markdown("Set ranges and targets for chemical properties.")
         chem_data, chem_errors = render_chemist_form(prefix="orch_")

@@ -1,22 +1,31 @@
 import streamlit as st
 import pandas as pd
-import json
-import os
 from pydantic import ValidationError
-
+from pathlib import Path
+import base64
 from streamlit_app.utils import (
     highlight_error_card, parse_chemist_input, setup_streamlit_logger,
-    render_chemist_form, get_available_models, instantiate_generator,
-    instantiate_biologist, generators_config, biologists_config, config_data
+    render_chemist_form
 )
-from peptide_pipeline.orchestrator.orchestrator import Orchestrator
-from peptide_pipeline.chemist.agent_v1.chemist_agent import ChemistAgent
-from peptide_pipeline.chemist.agent_v1.config_chemist import ChemistConfig
+from peptide_pipeline.chemist.chemist_agent.chemist_agent import ChemistAgent
+from peptide_pipeline.chemist.chemist_agent.config_chemist import ChemistConfig
 
 def render():
-    st.title("🔬 Chemist Tests")
-    st.markdown("Evaluate raw peptide sequences against physicochemical limits and score them.")
-    
+    icon_path = Path(__file__).resolve().parents[1] / "icons" / "chemistry.svg"
+    icon_b64 = base64.b64encode(icon_path.read_bytes()).decode("utf-8")
+    col_left, col_right = st.columns(2)
+
+    st.markdown(
+        f"""
+        <div style="text-align:center; margin-top: 0.5rem; margin-bottom: 1rem;">
+            <img src="data:image/svg+xml;base64,{icon_b64}" width="100" />
+            <h1 style="margin: 0.25rem 0 0 0;">Chemist</h1>
+            <p style="margin: 0.25rem 0 0 0;">Evaluate raw peptide sequences against physicochemical limits and score them.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     st.header("Input")
     raw_peptides = st.text_area("Enter peptide sequences (comma-separated or one per line)", value="MLYK, ACDEFGH, RWRFR")
     

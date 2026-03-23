@@ -26,9 +26,11 @@ class ChemistAgent(BaseChemist):
             # Skip if not configured
             if getattr(self.config, prop_name) is None:
                 continue
-            
+            self.logger.debug(f"Calculating property '{prop_name}' for peptide '{peptide}' using function '{prop_def.function.__name__}' with pH={self.config.ph if prop_def.requires_ph else 'N/A'}")
+
             # Calculate property value
             if prop_def.requires_ph:
+                self.logger.debug(f"Property '{prop_name}' requires pH. Using pH={self.config.ph} for calculation.")
                 properties[prop_name] = prop_def.function(peptide, pH=self.config.ph)
             else:
                 properties[prop_name] = prop_def.function(peptide)
@@ -39,13 +41,14 @@ class ChemistAgent(BaseChemist):
                 in_limits = False
             if config_constraint.max is not None and properties[prop_name] > config_constraint.max:
                 in_limits = False
-            
+            self.logger.debug(f"Calculated property '{prop_name}': {properties[prop_name]}. Limits: min={config_constraint.min}, max={config_constraint.max}. In limits: {in_limits}")
+
             # Calculate distance from target
             if config_constraint.target is not None:
                 distance_from_target[prop_name] = abs(properties[prop_name] - config_constraint.target)
+                self.logger.debug(f"Distance from target for property '{prop_name}': {distance_from_target[prop_name]} (target: {config_constraint.target})")
             else:
                 self.logger.warning(f"No target defined for property '{prop_name}' in ChemistConfig. Distance from target will not be calculated for this property.")
-
         return properties, distance_from_target, in_limits
 
     def _score_property(self, peptide_value: float, config_constraint: RangeTarget) -> float:
@@ -57,13 +60,17 @@ class ChemistAgent(BaseChemist):
         - Decay is normalized using the acceptable range around the target
         """
         # Check if within limits
+
         if config_constraint.min is not None and peptide_value < config_constraint.min:
+            self.logger.debug(f"Peptide value {peptide_value} is below minimum {config_constraint.min if config_constraint.min is not None else 'N/A'}. Score: 0.0")
             return 0.0
         if config_constraint.max is not None and peptide_value > config_constraint.max:
+            self.logger.debug(f"Peptide value {peptide_value} is above maximum {config_constraint.max if config_constraint.max is not None else 'N/A'}. Score: 0.0")
             return 0.0
         
         # If no target defined, cannot score
         if config_constraint.target is None:
+            self.logger.debug(f"No target defined for property. Peptide value: {peptide_value}. Returning default score of 1.0 since it's within limits.")
             return 1.0
         
         # Calculate distance from target
@@ -78,16 +85,18 @@ class ChemistAgent(BaseChemist):
         
         # If at target, return perfect score
         if distance == 0:
+            self.logger.debug(f"Peptide value {peptide_value} is exactly at target {config_constraint.target}. Score: 1.0")
             return 1.0
         
         # If max_distance is 0 (target equals both min and max), return 1
         if max_distance == 0:
+            self.logger.warning(f"Max distance is 0 for property with target {config_constraint.target}. Returning score of 1.0 since peptide value {peptide_value} is within limits.")
             return 1.0
         
         # Normalize distance to [0, 1] range and apply exponential decay
         normalized_distance = distance / max_distance
         score = float(exp(-normalized_distance))
-        
+        self.logger.debug(f"Scoring property with peptide value {peptide_value}, target {config_constraint.target}, distance {distance}, normalized distance {normalized_distance}, score {score}")
         return score
 
     def _analyze_peptide(self, peptide: str) -> Dict[str, object]:
@@ -171,12 +180,13 @@ class ChemistAgent(BaseChemist):
         peptide_evaluated = self.evaluate_peptides(peptides)
         # Sort by: in_limits peptides first (True first), then by score (descending)
         sorted_peptides = sorted(peptide_evaluated, key=lambda x: (not x["in_limits"], -x["score"]))
+        self.logger.debug(f"Peptides sorted by in_limits and score: {sorted_peptides}")
         
         # Log if not enough in-limit peptides
         in_limit_count = sum(1 for p in sorted_peptides if p["in_limits"])
         if in_limit_count < topK:
             self.logger.info(f"Only {in_limit_count} peptides are within limits, returning {topK - in_limit_count} out of limits ranked by score.")
-        
+        self.logger.debug(f"Top {topK} peptides: {sorted_peptides[:topK]}")
         return sorted_peptides[:topK]
 
 

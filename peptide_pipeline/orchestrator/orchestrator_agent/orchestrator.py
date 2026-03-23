@@ -37,6 +37,7 @@ class Orchestrator(BaseOrchestrator):
             if target_value is not None:
                 inferred[generator_name] = target_value
 
+        self.logger.debug(f"Inferred targets from chemist config: {inferred}")
         return inferred
 
     def _normalize_target_constraints(self, final_target: Dict[str, Any]) -> Dict[str, Any]:
@@ -48,6 +49,8 @@ class Orchestrator(BaseOrchestrator):
         for k, v in (final_target or {}).items():
             target_key = alias.get(k, k)
             constraints[target_key] = v
+        
+        self.logger.debug(f"Normalized constraints: {constraints}")
         return constraints
 
     def _build_parent_constraints(
@@ -75,6 +78,7 @@ class Orchestrator(BaseOrchestrator):
                 continue
             base_value = self._safe_float(constraints[constraint_key])
             parent_value = self._safe_float(props[prop_name], default=base_value)
+            self.logger.debug(f"Blended parent constraints: {constraints}")
             constraints[constraint_key] = parent_value
 
         return constraints
@@ -150,12 +154,12 @@ class Orchestrator(BaseOrchestrator):
 
             generated_count = len(candidates)
             if generated_count == 0:
-                self.logger.warning(f"Iteration {iteration_idx}: Generator returned no candidates.")
+                self.logger.error(f"Iteration {iteration_idx}: Generator returned no candidates.")
                 continue
 
             chemist_results = self.chemist.evaluate_peptides(candidates)
             if not chemist_results:
-                self.logger.warning(f"Iteration {iteration_idx}: Chemist returned no evaluable candidates.")
+                self.logger.error(f"Iteration {iteration_idx}: Chemist returned no evaluable candidates.")
                 continue
 
             in_limit_candidates = [c for c in chemist_results if bool(c.get("in_limits", False))]
@@ -170,7 +174,7 @@ class Orchestrator(BaseOrchestrator):
             selected_candidates = [c for c in selected_candidates if c.get("sequence")]
 
             if not valid_candidates:
-                self.logger.warning(f"Iteration {iteration_idx}: No valid sequences after chemist filtering.")
+                self.logger.error(f"Iteration {iteration_idx}: No valid sequences after chemist filtering.")
                 continue
 
             bio_scores = self.biologist.score_peptides(valid_candidates)
