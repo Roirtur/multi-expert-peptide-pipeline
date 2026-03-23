@@ -229,3 +229,4 @@ diapo/*
 !diapo/*.jpg
 !diapo/*.png
 !diapo/*.pdf
+!diapo/images
