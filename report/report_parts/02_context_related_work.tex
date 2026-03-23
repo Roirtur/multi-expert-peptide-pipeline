@@ -1,0 +1,16 @@
+\section{Context and Related Work}\label{sec:context}
+
+\subsection{Evolution of In Silico Peptide Generation}
+Computational peptide design has moved from rule-based filtering toward data-driven generation and ranking pipelines~\cite{wan2024machine}. Earlier approaches relied primarily on handcrafted physicochemical descriptors and QSAR-style models; modern methods combine these descriptors with learned sequence representations. In practice, descriptor-based rules remain useful because they encode explicit developability constraints, while learned models improve exploration of large sequence spaces.
+
+This evolution improved throughput and candidate quality, but did not remove the core optimization bottleneck: peptide design is intrinsically multi-objective. Activity, safety, synthesizability, and stability are only partially aligned, and a single monolithic model often fails to satisfy all objectives simultaneously.
+
+\subsection{The Shift to Agentic Workflows}
+Despite strong progress, many pipelines still treat generation, chemistry filtering, and biology scoring as loosely connected stages~\cite{huang2025biomni}. This fragmentation limits feedback: one-shot generation may satisfy one criterion while failing others, with no structured mechanism to revise candidates.
+
+Agentic workflows address this issue by organizing optimization as a closed loop: propose, evaluate, revise, and repeat~\cite{xi2023agentic}. The key contribution is not a new single predictor but a coordination policy across complementary experts. For constrained peptide design, this makes trade-offs explicit at each round and supports controlled exploration--exploitation behavior~\cite{wan2024machine}.
+
+\subsection{Project Scope and Alignment}
+The present project follows this direction as an AI-systems proof of concept. The deliverable is an end-to-end pipeline with three expert agents (generation, chemistry, biology) coordinated by an orchestrator over multiple rounds. The goal is to test whether explicit role decomposition and iterative coordination improve optimization behavior under practical proxy constraints.
+
+The scope is strictly \textit{in silico}. Scores are treated as documented proxies, not experimental evidence, and performance is evaluated through reproducible quantitative metrics and comparison against a non-agentic baseline. In this setting, success is defined as measurable improvement from coordination and iteration.

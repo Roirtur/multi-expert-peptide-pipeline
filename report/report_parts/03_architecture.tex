@@ -1,0 +1,139 @@
+\section{Multi-Agent System Architecture}\label{sec:architecture}
+The global pipeline is organized around three specialized agents coordinated by a central orchestrator. Figure~\ref{fig:pipeline_professional_colored} summarizes the end-to-end data flow and feedback loops in the iterative process.
+
+\begin{figure*}[t]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+	>=latex,
+	% Base Agent Style
+	agent/.style={
+		rectangle,
+		thick,
+		minimum width=3.5cm,
+		minimum height=1.2cm,
+		align=center,
+		font=\sffamily\bfseries,
+		rounded corners=2pt
+	},
+	% Distinct Professional Colors for each Agent
+	orchStyle/.style={agent, fill=purple!10, draw=purple!80!black, minimum width=5cm},
+	genStyle/.style={agent, fill=orange!10, draw=orange!80!black},
+	chemStyle/.style={agent, fill=blue!10, draw=blue!80!black},
+	bioStyle/.style={agent, fill=green!10, draw=green!80!black},
+	% Input / Output Styles
+	io/.style={rectangle, thick, align=center, font=\sffamily\footnotesize, rounded corners=2pt},
+	inputStyle/.style={io, dashed, fill=gray!5, draw=gray!60},
+	outputStyle/.style={io, solid, fill=yellow!15, draw=yellow!60!black},
+	% Flow Lines
+	batchFlow/.style={-{Stealth[length=3mm]}, thick, draw=black!90},
+	scoreFlow/.style={-{Stealth[length=3mm]}, thick, dashed, draw=black!70}
+]
+
+% --- NODES ---
+\node[orchStyle] (orch) at (0, 3) {Orchestrator};
+\node[genStyle]  (gen)  at (-5, 0) {Generator Agent};
+\node[chemStyle] (chem) at (0, -3) {Chemistry Agent};
+\node[bioStyle]  (bio)  at (5, 0) {Biology Agent};
+
+% --- SYSTEM INPUTS & OUTPUTS ---
+\node[inputStyle] (inputs) at (-2.5, 5) {\textbf{Inputs}: Hyperparameters\\(Top-$K$, Iterations, Batch Size, Targets)};
+\node[outputStyle] (outputs) at (2.5, 5) {\textbf{Output}: Final\\Top-$K$ Peptides};
+
+% Connect IO to Orchestrator (Straight up/down)
+\draw[batchFlow] (inputs) -- (inputs |- orch.north);
+\draw[batchFlow] (outputs |- orch.north) -- (outputs);
+
+% --- BATCH DATA FLOW (Solid Lines) ---
+% 1. Orchestrator -> Generator
+\draw[batchFlow] (orch.west) -| node[pos=0.25, above, font=\sffamily\footnotesize, align=center] {Init / Target Stats} (gen.north);
+
+% 2. Generator -> Chemistry
+\draw[batchFlow] (gen.south) |- node[pos=0.75, above, font=\sffamily\footnotesize, align=center] {Candidate Batch} (chem.west);
+
+% 3. Chemistry -> Biology
+\draw[batchFlow] (chem.east) -| node[pos=0.25, above, font=\sffamily\footnotesize, align=center] {Filtered Batch} (bio.south);
+
+% --- FEEDBACK & SCORE FLOW (Dashed Lines) ---
+% 4. Chemistry -> Orchestrator (Straight up through the center)
+\draw[scoreFlow] (chem.north) -- node[fill=white, inner sep=2pt, font=\sffamily\footnotesize, align=center] {Chem Scores\\(Validity \& Proxy Stats)} (orch.south);
+
+% 5. Biology -> Orchestrator
+\draw[scoreFlow] (bio.north) |- node[pos=0.75, above, font=\sffamily\footnotesize, align=center] {Bio Scores\\(Relevance Proxy)} (orch.east);
+
+% Enforce a symmetric final bounding box around x=0 to guarantee true global centering.
+\pgfresetboundingbox
+\path (-5.9, -3.4) rectangle (8.2, 3);
+
+\end{tikzpicture}
+}
+\caption{Agentic Pipeline Architecture. Solid lines denote the sequential flow of peptide candidate batches. Dashed lines indicate the feedback loops, where both the Chemistry and Biology agents return their respective proxy scores back to the Orchestrator. Color coding differentiates the specialized domains of the pipeline.}
+\label{fig:pipeline_professional_colored}
+\end{figure*}
+
+\subsection{The Orchestrator}\label{subsec:orchestrator}
+The orchestrator is the control layer that turns the three experts into one iterative optimization system. It enforces the same sequence at every round:
+\begin{enumerate}
+	\item Generate a candidate batch from target constraints (user-provided or inferred from chemistry configuration).
+	\item Evaluate candidates with the Chemistry Agent (descriptor extraction, score, in-limits status). If no in-limits peptide is found, the round still proceeds with the available candidates to avoid loop collapse.
+	\item Score candidates with the Biology Agent, fuse expert signals, and update a global best-by-sequence ranking used both for parent selection and final Top-$K$ output.
+\end{enumerate}
+Each iteration therefore combines exploration (new proposals) and exploitation (reuse of high-ranked candidates) under a single decision policy. Stopping is handled centrally through a fixed iteration budget; if one round yields no usable candidates, the run continues.
+
+Two implementation choices are central to robustness and comparability across experiments:
+\begin{itemize}
+	\item \textbf{Global ranking across rounds:} one best entry is kept per unique sequence, so strong early candidates remain competitive.
+	\item \textbf{Round continuity under strict filtering:} biology scoring can still be applied when chemistry yields no in-limits peptides, preventing starvation.
+\end{itemize}
+This design supports reproducible experimentation: run behavior changes through orchestrator parameters, without modifying expert modules. The orchestrator also provides full traceability by recording round-wise events and outcomes:
+\begin{itemize}
+	\item Input settings
+	\item Filtered populations
+	\item Expert scores
+	\item Selected candidates
+\end{itemize}
+This log-centric structure makes the optimization path auditable end to end.
+
+\subsection{Generator Agent}\label{subsec:designer}
+The final generator used in the pipeline is a Conditional Variational Autoencoder (CVAE). An unconditional VAE was tested first, but because it has no target-conditioning mechanism, sampled sequences were too random with respect to the requested profile and did not provide useful candidates for iterative optimization.
+
+The CVAE operates on fixed-length peptide sequences encoded as one-hot vectors over the 20 canonical amino acids. For a peptide of length $L$, the sequence input dimensionality is $20 \times L$. Unlike unconditional generation, the CVAE conditions both encoder and decoder on an auxiliary property vector $y$, and therefore learns:
+\begin{equation}
+q_{\phi}(z \mid x, y), \qquad p_{\theta}(x \mid z, y).
+\end{equation}
+
+In the implemented model, the condition vector is concatenated with the peptide input before encoding and concatenated again with the latent representation before decoding. This design allows generation to remain consistent with the training distribution while being biased toward requested physicochemical targets. The condition vector includes sequence-level and physicochemical descriptors (for example length, molecular weight, charge-related terms, hydrophobicity-related terms, and developability proxies such as \(\log P\), hydrogen-bond counts, and TPSA).
+
+In the current implementation, each property is encoded as a scalar value. Missing entries are replaced by predefined defaults, user-provided constraints override these defaults, and the resulting vector is padded or truncated to match the configured conditioning dimensionality.
+
+This conditioning strategy is what makes the generator useful for directed design in our loop: candidates are not only plausible peptide sequences, but are also steered toward the chemistry profile required by downstream filtering and ranking.
+
+\subsubsection{Physicochemical Conditioning}
+
+The CVAE conditioning space includes 12 descriptors, while the current Chemistry Agent actively evaluates six configurable properties (length, molecular weight, net charge, isoelectric point, hydrophobicity, and logP). This means that generation can be guided by a broader condition vector than the one strictly validated by chemistry filtering.
+
+This link between chemistry-oriented descriptors and the generative model provides a practical way to translate biochemical objectives into numerical conditioning variables. As a result, the CVAE can be integrated into a broader peptide design pipeline in which candidate peptides are generated, analyzed, and filtered according to downstream criteria.
+
+\subsubsection{Limitations}
+
+The CVAE design also introduces practical constraints (data dependence, conditioning limits, and biological scope), but these points concern interpretation and future extensions more than architecture itself. We therefore summarize them in the discussion section (Section~\ref{sec:discussion}).
+
+\subsection{Chemistry Agent}\label{subsec:chemistry}
+The Chemistry Agent is the deterministic constraint-and-scoring stage of the pipeline. It receives peptide sequences from the generator, evaluates them against configurable physicochemical targets, and returns both feasibility status and a quantitative chemistry score.
+
+\subsubsection{Sequence validation and property extraction:}
+The agent first validates peptide strings against the 20 standard amino acids. For each valid candidate, it computes configured physicochemical properties using peptide-level functions and RDKit-based logP estimation.
+
+\subsubsection{Multidimensional property profiling:}
+To characterize developability, the agent computes a configurable set of descriptors from two complementary sources: peptide-centric properties (length, net charge at chosen pH, isoelectric point, hydrophobicity) and molecule-centric properties (notably RDKit-based \(\log P\)). This profile lets the orchestrator compare candidates in a unified physicochemical space.
+
+\subsubsection{Quantitative scoring and filtering:}
+The agent assigns each candidate a continuous score based on distance to target values, with optional per-property weighting. Chemistry evaluation first computes per-peptide properties and in-limit status, then returns scored candidates to the orchestrator. At orchestration level, ranking prioritizes in-limit candidates; if none are available in a round, out-of-limit candidates are still forwarded for biological scoring to preserve loop continuity. This design prevents early pipeline collapse while maintaining selection pressure toward target profiles.
+\\
+
+The chemistry output is used directly by the orchestrator for admissibility-aware ranking and for score fusion with the biology signal.
+
+\subsection{Biology Agent (Function \& Risk)}\label{subsec:biology}
+The Biology Agent provides the biological ranking signal used by the iterative loop. In this implementation, it relies on ESM-2 embeddings~\cite{rives2021biological,esmgithub} and can be conditioned by context (for example a reference peptide).
+
+At each iteration, the agent scores the selected batch and returns values used by the orchestrator for candidate ranking and parent selection. The score is treated as a relative proxy for optimization guidance; the exact formulation is detailed in Section~\ref{subsec:scoring}.

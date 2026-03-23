@@ -91,19 +91,35 @@ class CVAEGenerator(BaseGenerator):
             y = self._constraints_to_condition_tensor(constraints, count, device=device)
 
             target_length = self._extract_target_length(constraints)
-            sampled_lengths = torch.full((count,), target_length, device=device, dtype=torch.long)
+            sampled_lengths = [target_length] * count
 
             logits = self.decoder(torch.cat([z, y], dim=-1))
             logits = logits.view(count, self.max_len, self.vocab_size)
 
             aa_logits = logits[:, :, :20]
             probs = F.softmax(aa_logits / max(temperature, 1e-6), dim=-1)
-            idx = torch.multinomial(probs.view(-1, 20), num_samples=1).view(count, self.max_len)
+            probs = torch.nan_to_num(probs, nan=0.0, posinf=0.0, neginf=0.0)
+
+            flat_probs = probs.view(-1, 20)
+            row_sums = flat_probs.sum(dim=-1, keepdim=True)
+            invalid_rows = row_sums.squeeze(-1) <= 0
+            if invalid_rows.any():
+                # Keep sampling robust even if a row becomes numerically invalid.
+                flat_probs[invalid_rows] = 1.0 / 20.0
+                row_sums = flat_probs.sum(dim=-1, keepdim=True)
+
+            flat_probs = flat_probs / row_sums.clamp_min(1e-12)
+
+            try:
+                idx = torch.multinomial(flat_probs, num_samples=1).view(count, self.max_len)
+            except RuntimeError:
+                # Fallback to deterministic decoding if CUDA sampling fails.
+                idx = torch.argmax(flat_probs, dim=-1).view(count, self.max_len)
 
             amino_acids = "ACDEFGHIKLMNPQRSTVWY"
             peptides = []
             for i in range(count):
-                L = int(sampled_lengths[i].item())
+                L = int(sampled_lengths[i])
                 peptides.append("".join(amino_acids[j] for j in idx[i, :L].cpu().tolist()))
 
         self.train()
