@@ -230,3 +230,4 @@ diapo/*
 !diapo/*.png
 !diapo/*.pdf
 !diapo/images
+!diapo/sections
