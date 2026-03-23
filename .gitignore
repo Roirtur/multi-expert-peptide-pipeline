@@ -223,3 +223,9 @@ report/.log
 report/.synctex.gz
 
 experiments/*.csv
+
+diapo/*
+!diapo/*.tex
+!diapo/*.jpg
+!diapo/*.png
+!diapo/*.pdf
