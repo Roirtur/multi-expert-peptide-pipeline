@@ -1,23 +1,22 @@
 \section{Discussion \& Future Work}\label{sec:discussion}
 
 \subsection{Domain Feedback and Scope Clarification}
-Expert feedback sharpens the scope of this work: chemistry-side outputs are considered feasible by the chemist, while the biologist confirms that biological validity cannot be claimed without experimental assays. Accordingly, we frame the current system as a robust \textit{in silico} optimization proof of concept.
+Overall, expert feedback is consistent with the quantitative results and helps clarify the scope of our claims. Chemistry-side outputs are considered feasible within the configured design space, whereas biological efficacy cannot be established without wet-lab assays. Accordingly, the current system should be interpreted as a robust \textit{in silico} optimization proof of concept.
 
-\subsection{Chemist agent improvement}
-In the current implementation, chemistry filtering and scoring are computed directly from peptide sequences.
-An extension could incorporate richer molecular representations (for example SMILES-derived descriptors) as additional conditioning and scoring signals.
-Such an extension would require a dedicated preprocessing pipeline, a clear descriptor-selection strategy, and retraining of the generation components to ensure consistency between conditioning variables and chemistry constraints.
+\subsection{Current Generator Limitations}
+At generator level, two limitations remain important for interpretation.
 
-\subsection{LLM usage for input}
-Initially, we considered using a large language model to guide peptide selection by training it to understand and communicate preferences about desired peptide characteristics. 
-This approach could have provided an intuitive interface for specifying optimization targets and constraints.
-This LLM-based input method remains a promising avenue for future work, particularly for enhancing the usability and flexibility of the system when dealing with complex or evolving biological requirements.
+First, generation assumes fixed-length peptide inputs because one-hot encoding and decoder output size depend directly on sequence length. Supporting variable-length peptides would require architectural changes or additional preprocessing.
+
+Second, conditioning quality depends on label quality. If training targets are noisy, missing, or weakly informative, the learned relation between requested properties and generated sequences becomes unstable, which reduces controllability at inference time.
+
+\subsection{Chemist Agent Improvements}
+Current chemistry filtering and scoring are sequence-derived. A natural extension is to incorporate richer molecular representations (for example SMILES-derived descriptors) as additional conditioning and evaluation signals. This direction would require dedicated preprocessing, careful descriptor selection, and retraining so that conditioning variables and chemistry constraints remain consistent.
+
+\subsection{LLM-Guided Input Specification}
+Another promising direction is to use a large language model as an interface layer for target specification. Instead of manually setting every constraint, users could express design objectives in natural language and map them to structured optimization settings. This could improve usability and make iterative design more flexible when requirements evolve.
 
 \subsection{Peptide-Specific Biological Scoring}\label{subsec:future_biologist}
-The current biology signal is useful for optimization guidance, but it is not a biological ground truth.
+The most impactful upgrade is on the biology side. The current ESM-based proxy is useful for ranking, but it is not biological ground truth. Replacing it with a peptide-specialized, target-conditioned predictor trained (or fine-tuned) on peptide-level validation data would directly improve ranking reliability.
 
-The main improvement is therefore to replace the current proxy with a model trained (or fine-tuned) specifically on peptides and supported by peptide-level validation data. Ideally, this model should score or classify a peptide conditionally on a target (or target-related context), instead of relying on a general protein-space similarity signal.
-
-The expected benefit is a more accurate and reliable biological signal for ranking candidates in the loop. A peptide-specialized model could also provide richer outputs than a single proxy score, for example clearer estimates of expected activity and additional information about risk or toxicity. Building such a model is likely a substantial research project on its own, but it is the most direct path to strengthen biological validity in future versions of the pipeline.
-
-In short, our current biologist agent is a practical baseline for iterative optimization, while a target-conditioned peptide model is the natural next step to improve biological relevance and decision quality.
+Beyond a single scalar score, such a model could provide richer outputs (for example expected activity and risk-related signals), making optimization decisions more informative. Although this is a substantial research effort, it remains the clearest path toward stronger biological relevance in future versions of the pipeline.

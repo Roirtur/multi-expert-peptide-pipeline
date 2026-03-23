@@ -1,85 +1,78 @@
 \section{Results and Analysis}\label{sec:results}
 
-This section focuses on the key curves used to understand pipeline behavior (iterations, number of generated peptides, and target peptide length), then adds a direct comparison against the non-agentic baseline.
-These are not the only analyses performed, but they are the most informative under the page constraints of this report.
+This section reports the most informative curves for understanding pipeline behavior under fixed resources: effect of iteration budget, candidate batch size, and target peptide length, followed by direct comparison with the non-agentic baseline.
 
-\subsection{Effect of Number of Iterations}\label{subsec:iter_curve}
+\subsection{Parameters Analysis}\label{subsec:parameters_analysis}
 
-\begin{figure}[H]
+\begin{figure}[htbp]
+\centering
+\begin{minipage}[t]{0.49\textwidth}
 \centering
 \IfFileExists{images/nb_iterations.png}{%
-\includegraphics[width=0.86\textwidth]{images/nb_iterations.png}%
+\includegraphics[width=\linewidth]{images/nb_iterations.png}%
 }{%
-\fbox{\parbox[c][4.8cm][c]{0.82\textwidth}{\centering Missing figure file:\\ \texttt{images/nb\_iterations.png}}}%
+\fbox{\parbox[c][3.6cm][c]{0.96\linewidth}{\centering Missing figure file:\\ \texttt{images/nb\_iterations.png}}}%
 }
-\caption{Effect of \texttt{nb\_iterations} on Top-1 score and runtime.}
-\label{fig:nb_iterations}
-\end{figure}
-
-Increasing iterations improves quality, but the gain remains gradual: Top-1 score moves from about $0.88$ to $0.89$. Runtime, however, grows sharply (from about $0.92$s to $13.39$s). This reflects a clear quality--time trade-off, with diminishing score gains at high iteration counts.
-
-\subsection{Effect of Number of Generated Peptides}\label{subsec:peptides_curve}
-
-\begin{figure}[H]
+\end{minipage}\hfill
+\begin{minipage}[t]{0.49\textwidth}
 \centering
 \IfFileExists{images/nb_peptides.png}{%
-\includegraphics[width=0.86\textwidth]{images/nb_peptides.png}%
+\includegraphics[width=\linewidth]{images/nb_peptides.png}%
 }{%
-\fbox{\parbox[c][4.8cm][c]{0.82\textwidth}{\centering Missing figure file:\\ \texttt{images/nb\_peptides.png}}}%
+\fbox{\parbox[c][3.6cm][c]{0.96\linewidth}{\centering Missing figure file:\\ \texttt{images/nb\_peptides.png}}}%
 }
-\caption{Effect of \texttt{nb\_peptides} on Top-1 score and runtime.}
-\label{fig:nb_peptides}
+\end{minipage}
+\caption{Pipeline sensitivity to optimization parameters: effect of \texttt{nb\_iterations} (left) and \texttt{nb\_peptides} (right) on Top-1 score and runtime.}
+\label{fig:iter_peptides_combined}
 \end{figure}
 
-When more candidates are generated per iteration, the score improves steadily (around $0.88$ to $0.89$), while runtime increases from about $1.83$s to $14.70$s. This confirms the same pattern: broader search helps, but computational cost rises quickly. A range of $256$ to $384$ peptides per iteration appears to be a practical compromise.
-
-\subsection{Effect of Target Peptide Length}\label{subsec:length_curve}
-
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
 \IfFileExists{images/target_length.png}{%
-\includegraphics[width=0.86\textwidth]{images/target_length.png}%
+\includegraphics[width=0.74\textwidth]{images/target_length.png}%
 }{%
-\fbox{\parbox[c][4.8cm][c]{0.82\textwidth}{\centering Missing figure file:\\ \texttt{images/target\_length.png}}}%
+\fbox{\parbox[c][3.8cm][c]{0.74\textwidth}{\centering Missing figure file:\\ \texttt{images/target\_length.png}}}%
 }
-\caption{Top-1 score and runtime versus target peptide length.}
+\caption{Effect of target peptide length on Top-1 score and runtime.}
 \label{fig:target_length}
 \end{figure}
 
-Target length has a strong impact on both quality and speed. Very short targets ($2$-$3$ residues) are the most difficult and stay around $0.82$ score. Performance then rises and stabilizes near $0.92$ for longer targets. Runtime increases more smoothly, from about $1.90$s to $3.77$s as length grows.
+Figure~\ref{fig:iter_peptides_combined} (left) indicates that increasing iterations improves quality, but the gain is gradual: Top-1 score rises from about $0.88$ to $0.89$. Runtime grows much faster (about $0.92$s to $13.39$s), showing a clear quality--time trade-off with diminishing returns at high iteration counts.
+
+In Figure~\ref{fig:iter_peptides_combined} (right), generating more candidates per round yields steady quality gains (about $0.88$ to $0.89$ Top-1), but runtime again increases strongly (about $1.83$s to $14.70$s). Broader search helps, yet computational cost scales quickly. In our runs, $256$--$384$ peptides per iteration provides a practical compromise.
+
+Figure~\ref{fig:target_length} shows that target length has a strong effect on quality and a moderate effect on runtime. Very short targets ($2$--$3$ residues) are the hardest and remain near $0.82$ score. Performance then increases and stabilizes around $0.92$ for longer targets, while runtime grows more smoothly (about $1.90$s to $3.77$s).
 
 \subsection{Pipeline vs Baseline (Score and Diversity)}\label{subsec:pipeline_vs_baseline}
 
-\begin{figure}[H]
+\begin{figure}[htbp]
+\centering
+\begin{minipage}[t]{0.49\textwidth}
 \centering
 \IfFileExists{images/score_per_target_length.png}{%
-\includegraphics[width=0.84\textwidth]{images/score_per_target_length.png}%
+\includegraphics[width=\linewidth]{images/score_per_target_length.png}%
 }{%
-\fbox{\parbox[c][4.8cm][c]{0.82\textwidth}{\centering Missing figure file:\\ \texttt{images/score\_per\_target\_length.png}}}%
+\fbox{\parbox[c][3.6cm][c]{0.96\linewidth}{\centering Missing figure file:\\ \texttt{images/score\_per\_target\_length.png}}}%
 }
-\caption{Average combined score by target length: baseline vs pipeline.}
-\label{fig:score_per_target_length}
-\end{figure}
-
-\begin{figure}[H]
+\end{minipage}\hfill
+\begin{minipage}[t]{0.49\textwidth}
 \centering
 \IfFileExists{images/unique_count.png}{%
-\includegraphics[width=0.96\textwidth]{images/unique_count.png}%
+\includegraphics[width=\linewidth]{images/unique_count.png}%
 }{%
-\fbox{\parbox[c][4.8cm][c]{0.82\textwidth}{\centering Missing figure file:\\ \texttt{images/unique\_count.png}}}%
+\fbox{\parbox[c][3.6cm][c]{0.96\linewidth}{\centering Missing figure file:\\ \texttt{images/unique\_count.png}}}%
 }
-\caption{Duplicate rate and average unique sequences by target length: baseline vs pipeline.}
-\label{fig:unique_count}
+\end{minipage}
+\caption{Baseline vs pipeline by target length: average combined score (left) and duplicate rate / average unique sequences (right).}
+\label{fig:baseline_comparison}
 \end{figure}
 
-For runtime comparison between pipeline and baseline, interpretation must be done carefully. The dominant computational cost comes from the shared CVAE generation component used in both methods, so absolute runtime differences are less informative than quality/diversity outcomes. As expected, the pipeline incurs additional overhead when the number of iterations increases, because orchestration and multi-agent evaluation are repeated across rounds.
+From Figure~\ref{fig:baseline_comparison}, runtime comparison between pipeline and baseline should be interpreted carefully, because both methods share the same CVAE generation core. Absolute runtime differences are therefore less informative than quality and diversity outcomes.
 
-On quality, Figure~\ref{fig:score_per_target_length} shows a clear regime split by target length. For larger targets, the two approaches are close (near tie), while for smaller targets the pipeline is clearly better on combined score. This is consistent with the idea that iterative critique and revision are most useful in harder settings, where one-shot generation struggles to find strong candidates.
+On quality (Figure~\ref{fig:baseline_comparison}, left), results split by difficulty regime. For longer targets, baseline and pipeline are close; for shorter targets, the pipeline clearly improves combined score. This supports the expected benefit of iterative critique in harder settings where one-shot generation is more brittle.
 
-On diversity, Figure~\ref{fig:unique_count} highlights an even stronger difference. The pipeline keeps a high number of unique sequences and near-zero duplication across target lengths. The baseline, in contrast, produces substantially more duplicates, and this effect becomes severe for short targets (high duplicate rate and very low unique-count). Practically, this means the agentic loop improves not only ranking quality but also exploration of sequence space.
+On diversity (Figure~\ref{fig:baseline_comparison}, right), the difference is stronger. The pipeline maintains a high number of unique sequences and near-zero duplication across target lengths, while the baseline shows many duplicates, especially for short targets. In practical terms, the agentic loop improves both ranking quality and exploration of sequence space.
 
 \subsection{Domain Expert Feedback and Interpretation}\label{subsec:expert_feedback}
 
-Beyond quantitative metrics, domain feedback supports the same interpretation. The chemist considered the generated peptides feasible and their property ranges coherent with the intended design space, consistent with the in-limits profiles observed in our runs.
-
-The biologist emphasized that biological accuracy cannot be confirmed without experimental assays. We therefore interpret the biology score as a ranking proxy, while the current system remains a proof of concept with strong engineering potential.
+Domain feedback is consistent with these quantitative trends. The chemist judged generated peptides feasible and coherent with the intended property ranges. The biologist confirmed that biological validity cannot be established without experimental assays, so the biology signal remains a ranking proxy within this \textit{in silico} scope.
