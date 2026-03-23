@@ -20,3 +20,5 @@ Another promising direction is to use a large language model as an interface lay
 The most impactful upgrade is on the biology side. The current ESM-based proxy is useful for ranking, but it is not biological ground truth. Replacing it with a peptide-specialized, target-conditioned predictor trained (or fine-tuned) on peptide-level validation data would directly improve ranking reliability.
 
 Beyond a single scalar score, such a model could provide richer outputs (for example expected activity and risk-related signals), making optimization decisions more informative. Although this is a substantial research effort, it remains the clearest path toward stronger biological relevance in future versions of the pipeline.
+
+Another issue with the biological evaluation is the differences between well known strains and unstudied ones. The currents models are trained on a limited set of bacterial species, which may not generalize well to novel or less-characterized pathogens. The models existing as of now are not great at extrapolating to new or unknown species, which is a problem for real-world applications where emerging pathogens are common.

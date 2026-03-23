@@ -2,7 +2,7 @@
 
 \usepackage{graphicx}
 \usepackage{multirow}
-\usepackage{booktabs} % Added for nicer tables (useful for result comparisons)
+\usepackage{booktabs}
 \usepackage{url}
 \usepackage{xurl}
 \usepackage{float}
@@ -10,17 +10,16 @@
 \usepackage{amssymb}
 \usepackage{mathtools}
 
-% FIGURES using tikzpicture
-% TikZ packages for schemas
+
 \usepackage{tikz}
 \usetikzlibrary{shapes, arrows, positioning, arrows.meta}
 
 % Setup for proper character encoding
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
+\usepackage{lmodern}
 
-% In report class, sections are normally numbered as chapter.section (e.g., 0.1).
-% This forces flat numbering: 1, 2, 3, ...
+
 \renewcommand{\thesection}{\arabic{section}}
 \renewcommand{\thesubsection}{\thesection.\arabic{subsection}}
 \renewcommand{\thesubsubsection}{\thesubsection.\arabic{subsubsection}}
