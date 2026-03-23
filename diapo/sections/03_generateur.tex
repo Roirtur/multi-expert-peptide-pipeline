@@ -16,3 +16,26 @@
     \end{itemize}
     \end{block}
 \end{frame}
+
+\begin{frame}
+    \frametitle{Résultats du générateur}
+    \begin{block}{VAE et CVAE}
+        \begin{itemize}
+        \item Génération de peptides aléatoires à l'aide du VAE
+        \end{itemize}
+        \centering
+        \includegraphics[height=2cm]{images/vae_training.png}
+        \begin{itemize}
+        \item Génération de peptides à partir de trois propriétés différentes (longueur, cathionicity, hydrophobicity) à l'aide du CVAE
+    \end{itemize}
+    \centering
+    \includegraphics[height=2cm]{images/cvae_generator.png}
+    \end{block}
+\end{frame}
+    
+    \begin{block}{Évaluation du générateur}
+        \begin{itemize}
+        \item Évaluation de la qualité des peptides générés en comparant leurs propriétés à celles des peptides connus
+        \item Utilisation de métriques telles que la diversité, la validité et la nouveauté des séquences générées
+        \end{itemize}
+    \end{block}
