@@ -25,10 +25,26 @@ class StreamlitLogHandler(logging.Handler):
             self.logs.append(log_entry)
             
             import html
-            escaped_logs = html.escape("".join(self.logs))
+            # Color-code logs based on level
+            colored_logs = []
+            for log in self.logs:
+                if "ERROR" in log or "CRITICAL" in log:
+                    color = "#ff4b4b"  # Red
+                elif "WARNING" in log:
+                    color = "#ffa500"  # Orange
+                elif "SUCCESS" in log or "Completed" in log:
+                    color = "#09ab3b"  # Green
+                elif "INFO" in log:
+                    color = "#a4c8ec"  # Blue
+                else:
+                    color = "#808080"  # Gray
+                
+                escaped = html.escape(log)
+                colored_logs.append(f'<span style="color: {color};">{escaped}</span>')
+            
             styled_html = f'''
-            <div style="max-height: 400px; overflow-y: auto; background-color: rgba(128, 128, 128, 0.05); border: 1px solid rgba(128,128,128,0.2); border-radius: 0.5rem; padding: 1rem;">
-                <pre style="margin: 0; font-family: monospace; font-size: 0.85em; white-space: pre-wrap;">{escaped_logs}</pre>
+            <div style="max-height: 500px; overflow-y: auto; background-color: #0e1117; border: 1px solid #30363d; border-radius: 0.5rem; padding: 1rem;">
+                <pre style="margin: 0; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 0.85em; white-space: pre-wrap; color: #c9d1d9; line-height: 1.5;">{'<br>'.join(colored_logs)}</pre>
             </div>
             '''
             self.log_placeholder.markdown(styled_html, unsafe_allow_html=True)
@@ -56,6 +72,39 @@ def highlight_error_card(field_name):
     </script>
     """
     components.html(js, height=0, width=0)
+
+def format_colorized_logs(log_lines):
+    """Format log lines with color coding based on content keywords."""
+    import html
+    colored_logs = []
+    
+    for line in log_lines:
+        # Determine color based on keywords
+        if "ERROR" in line or "Failed" in line or "Exception" in line:
+            color = "#ff4b4b"  # Red
+        elif "WARNING" in line or "warning" in line:
+            color = "#ffa500"  # Orange
+        elif "SUCCESS" in line or "successfully" in line.lower() or "saved" in line.lower():
+            color = "#09ab3b"  # Green
+        elif "INFO" in line or "Completed" in line or "Goal:" in line:
+            color = "#91beec"  # Blue
+        elif "[Batch Start]" in line:
+            color = "#c678dd"  # Purple
+        elif "Found" in line or "Processed" in line or "Total" in line:
+            color = "#56b6f2"  # Light blue
+        else:
+            color = "#c9d1d9"  # Light gray
+        
+        escaped = html.escape(line)
+        colored_logs.append(f'<div style="color: {color}; margin: 0.25rem 0;">{escaped}</div>')
+    
+    styled_html = f'''
+    <div style="max-height: 500px; overflow-y: auto; background-color: #0e1117; border: 1px solid #30363d; border-radius: 0.5rem; padding: 1rem; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 0.85em; line-height: 1.6;">
+        {''.join(colored_logs)}
+    </div>
+    '''
+    return styled_html
+
 @st.cache_data
 def load_config():
     config_path = os.path.join(os.path.dirname(__file__), "config.json")

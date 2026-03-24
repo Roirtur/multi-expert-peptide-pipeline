@@ -8,6 +8,7 @@ import base64
 from streamlit_app.utils import (
     setup_streamlit_logger,
     instantiate_generator,
+    format_colorized_logs,
 )
 
 def render():
@@ -31,7 +32,15 @@ def render():
         selected_gen_train = st.selectbox("Select Model Architecture to Train", ["VAE", "CVAE"], key="train_mod_sel")
         model_name = st.text_input("Model Save Name", value="my_trained_model", help="Will be saved in models/<ModelType>/<name>.pth")
     with col2:
-        dataset_source = st.radio("Dataset Source", ["Workspace /database folder", "Upload File"], horizontal=True)
+        dataset_source = st.radio(
+            "Dataset Source",
+            [
+                "Use JSON",
+                "Upload JSON",
+                "Fetch own dataset",
+            ],
+            horizontal=True,
+        )
         project_root = Path(__file__).resolve().parents[2]
         db_dir = project_root / "database"
         db_fetch_script = db_dir / "get_data.py"
@@ -39,29 +48,82 @@ def render():
         uploaded_file = None
         dataset_path = None
         
-        if dataset_source == "Workspace /database folder":
+        if dataset_source == "Use JSON":
             if db_dir.exists():
                 available_jsons = [f for f in os.listdir(db_dir) if f.endswith('.json')]
                 if available_jsons:
-                    selected_json = st.selectbox("Select an existing dataset", available_jsons)
+                    selected_json = st.selectbox("Select a dataset from /database", available_jsons)
                     dataset_path = f"database/{selected_json}"
                 else:
                     st.warning("No JSON files found in the /database folder.")
             else:
                 st.error("No /database folder found.")
+        elif dataset_source == "Upload JSON":
+            uploaded_file = st.file_uploader("Upload an external JSON dataset", type=["json"])
         else:
-            up_col, fetch_col = st.columns([2, 1])
-            with up_col:
-                uploaded_file = st.file_uploader("Upload an external JSON dataset", type=["json"])
-            with fetch_col:
-                st.write("\n")
-                fetch_dataset = st.button("Fetch Dataset", help="Run database/get_data.py and generate a local JSON dataset.")
+            st.caption("Run database/get_data.py to automatically download and build a dataset.")
+            fetch_limit = st.number_input(
+                "How many peptides to fetch",
+                min_value=100,
+                max_value=50000,
+                value=5000,
+                step=100,
+                help="Passed to get_data.py as --limit",
+            )
+            dataset_name = st.text_input(
+                "New dataset name",
+                value=st.session_state.get("fetch_dataset_name", "my_fetched_dataset"),
+                help="The file will be created in /database as <name>.json",
+            )
+            st.session_state["fetch_dataset_name"] = dataset_name
+
+            target_file_name = None
+            target_file_path = None
+            invalid_name = False
+            duplicate_name = False
+
+            if not db_dir.exists():
+                st.error("No /database folder found.")
+            else:
+                normalized_name = dataset_name.strip()
+                if normalized_name.lower().endswith(".json"):
+                    target_file_name = normalized_name
+                else:
+                    target_file_name = f"{normalized_name}.json"
+
+                if not normalized_name:
+                    invalid_name = True
+                    st.warning("Please provide a dataset name.")
+                elif any(ch in normalized_name for ch in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']):
+                    invalid_name = True
+                    st.warning("Dataset name contains invalid filename characters.")
+                else:
+                    target_file_path = db_dir / target_file_name
+                    if target_file_path.exists():
+                        duplicate_name = True
+                        dataset_path = f"database/{target_file_name}"
+                        st.warning("This dataset name is already used. Pick another name to fetch a new dataset.")
+
+            fetch_dataset = st.button(
+                "Run Auto-Download Script",
+                help="Run database/get_data.py and save output in /database.",
+                disabled=(invalid_name or duplicate_name or not db_dir.exists()),
+            )
 
             if fetch_dataset:
                 if not db_fetch_script.exists():
                     st.error(f"Dataset fetch script not found: {db_fetch_script}")
+                elif target_file_path is None:
+                    st.error("Unable to resolve target dataset path from the provided name.")
                 else:
-                    st.subheader("Dataset Fetch Logs")
+                    st.subheader("📥 Dataset Fetch Logs")
+                    st.markdown("""
+                    <div style="background-color: #f0f2f6; padding: 0.75rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                        <p style="margin: 0; font-size: 0.9em; color: #666;">
+                            🔄 Fetching from DBAASP API. Logs update in real-time below.
+                        </p>
+                    </div>
+                    """, unsafe_allow_html=True)
                     status_box = st.empty()
                     logs_box = st.empty()
                     log_lines = []
@@ -70,7 +132,14 @@ def render():
 
                     try:
                         process = subprocess.Popen(
-                            [sys.executable, str(db_fetch_script)],
+                            [
+                                sys.executable,
+                                str(db_fetch_script),
+                                "--limit",
+                                str(int(fetch_limit)),
+                                "--output-file",
+                                str(target_file_path),
+                            ],
                             cwd=str(project_root),
                             stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT,
@@ -85,7 +154,8 @@ def render():
                                     log_lines.append(clean_line)
                                     # Keep UI responsive by showing only the latest lines.
                                     log_lines = log_lines[-250:]
-                                    logs_box.code("\n".join(log_lines), language="text")
+                                    styled_html = format_colorized_logs(log_lines)
+                                    logs_box.markdown(styled_html, unsafe_allow_html=True)
 
                         return_code = process.wait()
                     except Exception as e:
@@ -93,12 +163,22 @@ def render():
                         return_code = 1
 
                     if return_code == 0:
-                        status_box.success("Dataset retrieved successfully. It is now available in /database.")
+                        st.session_state["last_fetched_dataset"] = target_file_name
+                        status_box.success(f"Dataset retrieved successfully: {target_file_name}")
                         st.rerun()
                     else:
                         status_box.error("Dataset retrieval failed while running database/get_data.py.")
                         if log_lines:
-                            logs_box.code("\n".join(log_lines[-120:]), language="text")
+                            styled_html = format_colorized_logs(log_lines[-120:])
+                            logs_box.markdown(styled_html, unsafe_allow_html=True)
+
+            if dataset_path is None:
+                last_fetched = st.session_state.get("last_fetched_dataset")
+                if last_fetched:
+                    last_fetched_path = db_dir / last_fetched
+                    if last_fetched_path.exists():
+                        dataset_path = f"database/{last_fetched}"
+                        st.info(f"Current fetched dataset: {last_fetched}")
         
 
     
@@ -115,12 +195,19 @@ def render():
         import torch
         import pandas as pd
         
-        model_save_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models", selected_gen_train)
+        model_save_dir = os.path.join(str(project_root), "models", selected_gen_train)
         os.makedirs(model_save_dir, exist_ok=True)
         final_save_path = os.path.join(model_save_dir, f"{model_name}.pth")
         
         st.subheader("Training Runtime Logs")
-        with st.expander("Live Logs", expanded=True):
+        with st.expander("Live Training Logs", expanded=True):
+            st.markdown("""
+            <div style="background-color: #f0f2f6; padding: 0.75rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                <p style="margin: 0; font-size: 0.9em; color: #666;">
+                    Logs are updated in real-time below. Watch for INFO, WARNING, and completion messages.
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
             log_container = st.empty()
             setup_streamlit_logger(log_container)
         
@@ -130,7 +217,7 @@ def render():
         
         # Load data
         with st.spinner("Loading data..."):
-            if dataset_source == "Upload File" and uploaded_file is not None:
+            if dataset_source == "Upload JSON" and uploaded_file is not None:
                 try:
                     df = pd.read_json(uploaded_file)
                 except Exception:
@@ -148,7 +235,7 @@ def render():
                     except Exception:
                         df = pd.read_json(abs_dataset_path, lines=True)
             else:
-                st.error("No dataset selected or uploaded.")
+                st.error("No dataset selected, uploaded, or downloaded.")
                 st.stop()
                 
             # Keep only standard aminos
@@ -211,6 +298,16 @@ def render():
                                 generator.train_model(data=x_tensor, conditions=conditions, lengths=lengths, epochs=int(epochs), batch_size=int(batch_size), lr=float(lr))
                                 
                             torch.save(generator.state_dict(), final_save_path)
-                            st.success(f"Model successfully trained and saved to {final_save_path}")
+                            st.markdown("""
+                            <div style="background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 0.5rem; padding: 1rem; margin: 1rem 0;">
+                                <p style="margin: 0; color: #155724; font-weight: bold;">✅ Training Completed Successfully!</p>
+                                <p style="margin: 0.5rem 0 0 0; color: #155724; font-size: 0.9em;">Model saved to: <code style="background-color: rgba(0,0,0,0.1); padding: 0.25rem 0.5rem; border-radius: 0.25rem;">{final_save_path}</code></p>
+                            </div>
+                            """, unsafe_allow_html=True)
                         except Exception as e:
-                            st.error(f"Training Error: {e}")
+                            st.markdown(f"""
+                            <div style="background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 0.5rem; padding: 1rem; margin: 1rem 0;">
+                                <p style="margin: 0; color: #721c24; font-weight: bold;">❌ Training Error</p>
+                                <p style="margin: 0.5rem 0 0 0; color: #721c24; font-size: 0.9em;">{str(e)}</p>
+                            </div>
+                            """, unsafe_allow_html=True)
