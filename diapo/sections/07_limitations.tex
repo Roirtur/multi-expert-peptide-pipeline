@@ -1,10 +1,34 @@
-\section{limitations et défis rencontrés}
+\section{Discussion et perspectives}
+
 \begin{frame}
-    \frametitle{Limitations et défis rencontrés}
+    \frametitle{Discussion: limites actuelles}
+    \begin{block}{Portée des résultats}
+        \footnotesize
+        Le pipeline est un \textbf{PoC in silico}: les signaux chimie/biologie guident l'optimisation, mais ne remplacent pas une validation expérimentale.
+    \end{block}
+
+    \begin{block}{Limites techniques principales}
+        \footnotesize
+        \begin{itemize}
+            \item Génération actuellement en \textbf{longueur fixe}.
+            \item Qualité du contrôle dépendante de la \textbf{qualité des labels} de training.
+            \item Score bio ESM utile pour classer, mais \textbf{pas un ground truth} d'activité.
+        \end{itemize}
+    \end{block}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Perspectives prioritaires}
     \begin{itemize}
-        \item Manque de données biologiques pour entraîner le modèle du biologiste
-        \item Complexité de la modélisation des interactions biologiques
-        \item Difficulté à évaluer la performance du pipeline sans tests biologiques
-        \item Besoin d'une validation expérimentale pour confirmer les résultats obtenus \\
+        \item \textbf{Biologiste spécialisé peptides}: modèle target-conditionné entraîné/fine-tuné sur données peptides validées.
+        \item \textbf{Chimie enrichie}: ajouter des descripteurs moléculaires (ex. dérivés SMILES) en complément des propriétés séquence.
+        \item \textbf{Entrée en langage naturel}: LLM pour traduire des objectifs utilisateurs en contraintes structurées.
+        \item \textbf{Généralisation bio}: améliorer la robustesse sur espèces peu documentées ou émergentes.
     \end{itemize}
+
+    \vspace{0.2em}
+    \begin{block}{Priorité pratique}
+        \footnotesize
+        Étape suivante la plus impactante: améliorer la fiabilité du score biologiste.
+    \end{block}
 \end{frame}

@@ -33,14 +33,20 @@
 \section{Experts et Architecture}
 \begin{frame}
     \frametitle{Pipeline}
-        \begin{center}
-            \begin{tikzpicture}
-            \node[rectangle, draw, fill=blue!20, minimum width=3cm, minimum height=1cm, align=center] (gen) at (0, 0) {Generator Agent};
-            \node[rectangle, draw, fill=green!20, minimum width=3cm, minimum height=1cm, align=center] (chem) at (4, 0) {Chemistry Agent};
-            \node[rectangle, draw, fill=orange!20, minimum width=3cm, minimum height=1cm, align=center] (bio) at (8, 0) {Biology Agent};
+    \begin{center}
+        \begin{tikzpicture}
+        \node[rectangle, draw, fill=orange!20, minimum width=3cm, minimum height=1cm, align=center] (gen) at (0, 0) {Generator Agent};
+        \node[rectangle, draw, fill=blue!20, minimum width=3cm, minimum height=1cm, align=center] (chem) at (4, 0) {Chemistry Agent};
+        \node[rectangle, draw, fill=green!20, minimum width=3cm, minimum height=1cm, align=center] (bio) at (8, 0) {Biology Agent};
 
-            \draw[->] (gen) -- (chem);
-            \draw[->] (chem) -- (bio); 
-            \end{tikzpicture}
-        \end{center}
+        \draw[->] (gen) -- (chem);
+        \draw[->] (chem) -- (bio);
+        \end{tikzpicture}
+    \end{center}
+
+    \vspace{0.5em}
+    \begin{block}{Définition et rôle}
+        \footnotesize
+        Une chaîne d'étapes où la sortie d'un module devient l'entrée du suivant, permettant ainsi de répartir des tâches à différents experts.
+    \end{block}
 \end{frame}
