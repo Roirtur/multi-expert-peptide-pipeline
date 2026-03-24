@@ -3,7 +3,7 @@
     \frametitle{Générateur}
     \begin{block}{Modèle du générateur}
         \begin{itemize}
-        \item Modèle générant des séquences de peptides à partir de séquence ou propriétés souhaitées
+        \item Modèle fait main générant des séquences de peptides à partir de séquence ou propriétés souhaitées
         \item Entraîné sur une base de données de peptides connus et leurs propriétés
         \item Capable de générer des peptides avec des propriétés spécifiques (ex: propriétés chimiques)
         \end{itemize}
@@ -21,10 +21,10 @@
     \frametitle{Résultats du générateur}
     \begin{block}{VAE et CVAE}
         \begin{itemize}
-        \item Génération de peptides aléatoires à l'aide du VAE
+        \item Génération de peptides aléatoires à l'aide du VAE, au format code peptidique (N-terminal vers C-terminal).
         \end{itemize}
         \centering
-        01: IWIGRK
+        ex: IWIGRK
 
         \begin{itemize}
         \item Génération de peptides à partir de trois propriétés différentes (longueur, cathionicity, hydrophobicity) à l'aide du CVAE
