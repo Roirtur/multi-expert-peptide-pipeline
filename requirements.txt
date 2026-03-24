@@ -7,6 +7,7 @@ rdkit
 scikit_learn
 textual
 torch
+torchvision
 transformers
 streamlit
 streamlit_option_menu
