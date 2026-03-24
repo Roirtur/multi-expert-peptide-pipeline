@@ -3,19 +3,19 @@
     \frametitle{Chimiste}
     \begin{block}{Modèle du chimiste}
         \begin{itemize}
-        \item Expert évaluant les propriétés chimiques des peptides générés
-        \item Basé sur des règles chimiques et des calculs mathématiques pour évaluer la validité et les propriétés des peptides
-        \item Capable de filtrer les peptides générés en fonction de critères chimiques (ex: solubilité, stabilité)
+        \item Prend en entrée une ou des séquences de peptides générés par le générateur
+        \item Prend des intervales de propriétés chimiques souhaitées 
+        \item Utilise des règles chimiques et physiques pour donner un score à la peptide à partir des intervalles et cibles séléctionnés
         \end{itemize}
     \end{block}
     \begin{block}{Propriétés chimiques évaluées}
+            Taille de la séquence, Poids moléculaire, Charge nette, LogP (coefficient de partage octanol-eau), Hydrophobicité, Point isoélectrique\dots
+    \end{block}
+    \begin{block}{Résultats du chimiste}
         \begin{itemize}
-            \item Taille de la séquence
-            \item Poids moléculaire
-            \item Charge nette
-            \item LogP (coefficient de partage octanol-eau)
-            \item Hydrophobicité
-            \item Point isoélectrique
-        \end{itemize}
+        \item propriétées chimiques des peptides générés par le générateur
+        \item score basé sur la distance entre les propriétés chimiques des peptides générés et les cibles de propriétés souhaitées
+        \item si la peptide est hors des intervalles de propriétés souhaitées, le score est pénalisé
+    \end{itemize}
     \end{block}
 \end{frame}
