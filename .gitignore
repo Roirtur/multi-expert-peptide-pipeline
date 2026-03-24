@@ -219,9 +219,9 @@ database/*.json
 report/*
 
 !report/*.pdf
-!report/*.tex
 !report/*.bib
-!report/*png
+!report/*.png
+!report/*.tex
 
 
 experiments/*.csv
