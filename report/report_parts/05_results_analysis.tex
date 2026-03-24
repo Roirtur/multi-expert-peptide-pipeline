@@ -68,6 +68,10 @@ For hard short targets, iteration gives a clear advantage. At length $2$, the ba
 
 For easier long targets, the picture changes. At length $11$, the baseline reaches $0.83$, above the ten-iteration pipeline at $0.80$. This means iterative critique is not universally superior; it is most useful in difficult regimes, and can be unnecessary or slightly detrimental when direct generation is already strong.
 
+Important clarification: Figure~\ref{fig:target_length} reports Top-1 score, which measures the best candidate found in a run while Figure~\ref{fig:baseline_score} reports an average combined score, which reflects the global quality of many generated candidates for the same target length.
+
+This is why values can differ substantially for the same target length. A method can obtain a strong Top-1 by finding a few very good candidates, while still producing many mediocre candidates that lower the average. In the current experiments, this gap suggests that search and ranking can still identify good outliers, but population-level quality remains uneven, especially in short-length regimes.
+
 \subsection{Interpretation}\label{subsec:expert_feedback}
 
 Overall, the most robust conclusion is that iterative multi-expert search is most valuable in difficult target regimes, where it improves the score relatively to the non-agentic generation. The same experiments also expose clear improvement directions: a more sample-efficient orchestration strategy (to reduce slow score growth with additional rounds) and a more discriminative biological scorer for extreme short-length cases.
