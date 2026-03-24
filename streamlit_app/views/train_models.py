@@ -1,5 +1,7 @@
 import streamlit as st
 import os
+import sys
+import subprocess
 from pathlib import Path
 import base64
 
@@ -30,13 +32,15 @@ def render():
         model_name = st.text_input("Model Save Name", value="my_trained_model", help="Will be saved in models/<ModelType>/<name>.pth")
     with col2:
         dataset_source = st.radio("Dataset Source", ["Workspace /database folder", "Upload File"], horizontal=True)
+        project_root = Path(__file__).resolve().parents[2]
+        db_dir = project_root / "database"
+        db_fetch_script = db_dir / "get_data.py"
         
         uploaded_file = None
         dataset_path = None
         
         if dataset_source == "Workspace /database folder":
-            db_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "database")
-            if os.path.exists(db_dir):
+            if db_dir.exists():
                 available_jsons = [f for f in os.listdir(db_dir) if f.endswith('.json')]
                 if available_jsons:
                     selected_json = st.selectbox("Select an existing dataset", available_jsons)
@@ -46,7 +50,56 @@ def render():
             else:
                 st.error("No /database folder found.")
         else:
-            uploaded_file = st.file_uploader("Upload an external JSON dataset", type=["json"])
+            up_col, fetch_col = st.columns([2, 1])
+            with up_col:
+                uploaded_file = st.file_uploader("Upload an external JSON dataset", type=["json"])
+            with fetch_col:
+                st.write("\n")
+                fetch_dataset = st.button("Fetch Dataset", help="Run database/get_data.py and generate a local JSON dataset.")
+
+            if fetch_dataset:
+                if not db_fetch_script.exists():
+                    st.error(f"Dataset fetch script not found: {db_fetch_script}")
+                else:
+                    st.subheader("Dataset Fetch Logs")
+                    status_box = st.empty()
+                    logs_box = st.empty()
+                    log_lines = []
+
+                    status_box.info("Fetching dataset from DBAASP... This can take a while.")
+
+                    try:
+                        process = subprocess.Popen(
+                            [sys.executable, str(db_fetch_script)],
+                            cwd=str(project_root),
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT,
+                            text=True,
+                            bufsize=1,
+                        )
+
+                        if process.stdout is not None:
+                            for line in process.stdout:
+                                clean_line = line.rstrip()
+                                if clean_line:
+                                    log_lines.append(clean_line)
+                                    # Keep UI responsive by showing only the latest lines.
+                                    log_lines = log_lines[-250:]
+                                    logs_box.code("\n".join(log_lines), language="text")
+
+                        return_code = process.wait()
+                    except Exception as e:
+                        st.error(f"Failed to run dataset fetch script: {e}")
+                        return_code = 1
+
+                    if return_code == 0:
+                        status_box.success("Dataset retrieved successfully. It is now available in /database.")
+                        st.rerun()
+                    else:
+                        status_box.error("Dataset retrieval failed while running database/get_data.py.")
+                        if log_lines:
+                            logs_box.code("\n".join(log_lines[-120:]), language="text")
+        
 
     
     st.header("2. Hyperparameters")
@@ -85,7 +138,7 @@ def render():
                     df = pd.read_json(uploaded_file, lines=True)
             elif dataset_path is not None:
                 # dataset_path is like database/ai_training_peptides.json, which is at the root
-                abs_dataset_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), dataset_path)
+                abs_dataset_path = os.path.join(str(project_root), dataset_path)
                 if not os.path.exists(abs_dataset_path):
                     st.error(f"Dataset not found at {abs_dataset_path}")
                     st.stop()
