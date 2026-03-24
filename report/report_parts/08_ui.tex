@@ -1,0 +1,14 @@
+\section{User Interface (Streamlit)}\label{sec:ui}
+The project uses a Streamlit application (\texttt{streamlit\_app/app.py}) as the main user-facing interface to the multi-expert peptide pipeline. Its primary purpose is to make experimentation reproducible and accessible by exposing model selection, parameterization, execution, and result inspection in one place.
+
+\subsection{Purpose of the UI}
+The Streamlit UI acts as an orchestration console for research workflows. Instead of running separate scripts for each stage, users can configure and launch end-to-end tasks from a single screen. This reduces operational friction, standardizes run configuration, and supports faster iteration during model development and comparison.
+
+\subsection{Core Functionality}
+The interface is organized around five functional views: \textit{Orchestrator}, \textit{Train Models}, \textit{Generator Tests}, \textit{Chemist Tests}, and \textit{Biologist Tests}. A sidebar menu provides navigation between these modules and includes shared runtime controls (notably the global log level), which are persisted in \texttt{st.session\_state}.
+
+UI controls are generated from structured configuration (\texttt{streamlit\_app/config.json}) and from schema-driven definitions (e.g., \texttt{ChemistConfig}), allowing users to adjust generator, biologist, and chemistry constraints without modifying source code. The chemistry forms support both scalar entries and range/target constraints, which aligns the interface with constrained peptide design scenarios.
+
+To improve transparency during execution, the app includes a real-time log panel through a custom \texttt{StreamlitLogHandler}. This gives immediate feedback on pipeline behavior, while validation-oriented visual cues help identify invalid or incomplete inputs.
+
+Overall, the Streamlit layer provides the practical bridge between pipeline components and day-to-day experimentation needs, with emphasis on usability, traceability, and rapid iterative testing.

@@ -216,8 +216,10 @@ database/*.json
 *.pth
 
 #report files
-report/*
-
+*.fls
+*.aux
+*.fdb_latexmk
+*.synctex.gz
 !report/*.pdf
 !report/*.bib
 !report/*.png
