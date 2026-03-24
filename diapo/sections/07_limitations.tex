@@ -12,7 +12,7 @@
         \begin{itemize}
             \item Génération actuellement en \textbf{longueur fixe}.
             \item Qualité du contrôle dépendante de la \textbf{qualité des labels} de training.
-            \item Score bio ESM utile pour classer, mais \textbf{pas un ground truth} d'activité.
+            \item Score bio ESM utile pour classer, mais \textbf{pas une vérité terrain} d'activité.
         \end{itemize}
     \end{block}
 \end{frame}
@@ -20,15 +20,15 @@
 \begin{frame}
     \frametitle{Perspectives prioritaires}
     \begin{itemize}
-        \item \textbf{Biologiste spécialisé peptides}: modèle target-conditionné entraîné/fine-tuné sur données peptides validées.
-        \item \textbf{Chimie enrichie}: ajouter des descripteurs moléculaires (ex. dérivés SMILES) en complément des propriétés séquence.
         \item \textbf{Entrée en langage naturel}: LLM pour traduire des objectifs utilisateurs en contraintes structurées.
+        \item \textbf{Chimie enrichie}: ajouter des descripteurs moléculaires (ex. dérivés SMILES) en complément des propriétés séquence.
+        \item \textbf{Biologiste spécialisé peptides}: modèle target-conditionné entraîné/fine-tuné sur données peptides validées.
         \item \textbf{Généralisation bio}: améliorer la robustesse sur espèces peu documentées ou émergentes.
     \end{itemize}
-
-    \vspace{0.2em}
-    \begin{block}{Priorité pratique}
-        \footnotesize
-        Étape suivante la plus impactante: améliorer la fiabilité du score biologiste.
-    \end{block}
+    \begin{center}
+        $\implies$ Meilleure fiabilité des entrées \& résultats.
+        \\
+        $\implies$ Utilisation par public non-expert.
+        
+    \end{center}
 \end{frame}
