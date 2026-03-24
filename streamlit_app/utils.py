@@ -2,16 +2,31 @@
 import os
 import sys
 import logging
+from functools import lru_cache
 from collections import deque
 import streamlit as st
 import streamlit.components.v1 as components
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from peptide_pipeline.generator.cvae_generator_agent.cvae_generator import CVAEGenerator
-from peptide_pipeline.generator.vae_generator_agent.vae_generator import VAEGenerator
-from peptide_pipeline.biologist.esm_cos_bio_agent.esm_biologist_cos import ESMBiologistCos
-from peptide_pipeline.biologist.esm_l2_bio_agent.esm_biologist_global_l2 import ESMBiologistGlobalL2
-from peptide_pipeline.chemist.chemist_agent.config_chemist import ChemistConfig
+
+
+@lru_cache(maxsize=1)
+def _get_model_classes():
+    from peptide_pipeline.generator.cvae_generator_agent.cvae_generator import CVAEGenerator
+    from peptide_pipeline.generator.vae_generator_agent.vae_generator import VAEGenerator
+    from peptide_pipeline.biologist.esm_cos_bio_agent.esm_biologist_cos import ESMBiologistCos
+    from peptide_pipeline.biologist.esm_l2_bio_agent.esm_biologist_global_l2 import ESMBiologistGlobalL2
+
+    return CVAEGenerator, VAEGenerator, ESMBiologistCos, ESMBiologistGlobalL2
+
+
+@lru_cache(maxsize=1)
+def _get_chemist_config_class():
+    from peptide_pipeline.chemist.chemist_agent.config_chemist import ChemistConfig
+
+    return ChemistConfig
+
+
 class StreamlitLogHandler(logging.Handler):
     def __init__(self, log_placeholder, max_lines=500):
         super().__init__()
@@ -158,6 +173,7 @@ def render_chemist_form(prefix="chem_"):
     chem_config_data = {}
     chem_errors = {}
 
+    ChemistConfig = _get_chemist_config_class()
     fields = list(ChemistConfig.model_fields.items())
 
     # 1) Scalars first (full width), e.g. pH
@@ -203,6 +219,7 @@ def get_available_models(model_type):
 
 def instantiate_generator(selected_gen, model_file="Base (Untrained)"):
     import torch
+    CVAEGenerator, VAEGenerator, _, _ = _get_model_classes()
     gen_info = generators_config.get(selected_gen, {})
     hyperparams = {param["id"]: param["default"] for param in gen_info.get("hyperparameters", [])}
 
@@ -222,6 +239,7 @@ def instantiate_generator(selected_gen, model_file="Base (Untrained)"):
     return gen
 
 def instantiate_biologist(selected_bio, reference_sequence, bio_params_vals):
+    _, _, ESMBiologistCos, ESMBiologistGlobalL2 = _get_model_classes()
     if selected_bio == "ESMBiologistGlobalL2":
         return ESMBiologistGlobalL2(reference_peptide=reference_sequence, **bio_params_vals)
     else:
