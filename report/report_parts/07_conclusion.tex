@@ -1,8 +1,10 @@
 \section{Conclusion}\label{sec:conclusion}
-This report presented a multi-expert agentic pipeline for \textit{in silico} peptide design, combining generation, chemistry constraints, and biology scoring under iterative orchestration. Across experiments, the system showed stable optimization behavior: iterative rounds improved ranking quality in difficult regimes (especially short targets) while maintaining higher diversity and lower duplication than the non-agentic baseline.
+This report presented a multi-expert agentic pipeline for \textit{in silico} peptide design, combining generation, chemistry constraints, and biology scoring under iterative orchestration. Across experiments, the system showed stable optimization behavior: iterative rounds improved ranking quality in difficult regimes (especially short targets).
+
+At the same time, experiments show that quality gains from larger orchestration budgets are modest relative to runtime growth, which indicates that the current orchestrator remains improvable in sample efficiency. Results also show a recurring gap between best-candidate performance (Top-1) and population-level average score.
 
 The main contribution is architectural and methodological: explicit expert roles, global ranking across rounds, and fully traceable decision flow. This makes optimization trade-offs observable, supports reproducible comparisons, and provides a practical framework for controlled experimentation under proxy constraints.
 
-The current biology signal remains a proxy and must not be interpreted as experimental evidence. Accordingly, the present work is an AI engineering proof of concept, with the most impactful next steps being peptide-specialized biological predictors, richer chemistry-aware representations, and broader ablations to isolate each module's contribution.
+The current biology signal remains a proxy and must not be interpreted as experimental evidence. This is particularly important in extreme short-length regimes, where score interpretation remains uncertain. Accordingly, the present work is an AI engineering proof of concept, with the most impactful next steps being peptide-specialized biological predictors, richer chemistry-aware representations, and an orchestrator that is more open to controlled exploration while still maintaining strong ranking pressure.
 
 Code, experiment scripts, configurations, and run logs are provided in the project repository~\cite{multi_expert_repo} to support reproducibility and future extensions.

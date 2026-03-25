@@ -216,15 +216,14 @@ database/*.json
 *.pth
 
 #report files
-report/*.aux
-report/*fls
-report/*synctex.gz
-report/*fdb_latexmk
-
+*.fls
+*.aux
+*.fdb_latexmk
+*.synctex.gz
 !report/*.pdf
-!report/*.tex
 !report/*.bib
 !report/*.png
+!report/*.tex
 
 
 experiments/*.csv

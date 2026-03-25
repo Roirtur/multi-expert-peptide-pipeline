@@ -16,6 +16,11 @@ Current chemistry filtering and scoring are sequence-derived. A natural extensio
 \subsection{LLM-Guided Input Specification}
 Another promising direction is to use a large language model as an interface layer for target specification. Instead of manually setting every constraint, users could express design objectives in natural language and map them to structured optimization settings. This could improve usability and make iterative design more flexible when requirements evolve.
 
+\subsection{Exploration-Oriented Orchestrator}
+Another key direction is to redesign orchestration to be more open to exploration, especially in difficult target regimes. Current behavior suggests that later rounds can become too conservative around already good candidates. A more exploration-oriented policy (for example adaptive exploration rate, uncertainty-aware parent selection, or diversity-driven candidate injection) could improve coverage of sequence space while preserving exploitation of strong leads.
+
+This would directly target one of the main observed limitations: slow score gains when increasing iteration budget. The objective is not random search, but controlled exploration that improves both best-candidate quality and population-level quality.
+
 \subsection{Peptide-Specific Biological Scoring}\label{subsec:future_biologist}
 The most impactful upgrade is on the biology side. The current ESM-based proxy is useful for ranking, but it is not biological ground truth. Replacing it with a peptide-specialized, target-conditioned predictor trained (or fine-tuned) on peptide-level validation data would directly improve ranking reliability.
 
