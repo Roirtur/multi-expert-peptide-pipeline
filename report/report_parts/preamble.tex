@@ -5,6 +5,7 @@
 \usepackage{booktabs}
 \IfFileExists{xurl.sty}{\usepackage{xurl}}{\usepackage{url}}
 \usepackage{float}
+\usepackage[a4paper,top=6cm,bottom=2.6cm,left=2.5cm,right=2.5cm]{geometry}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{mathtools}
@@ -26,5 +27,12 @@
 
 % Reduce small overfull boxes while preserving normal paragraph aesthetics.
 \setlength{\emergencystretch}{2em}
+
+% Slightly tighten vertical white space around figures and captions.
+\setlength{\textfloatsep}{14pt plus 2pt minus 2pt}
+\setlength{\floatsep}{12pt plus 2pt minus 2pt}
+\setlength{\intextsep}{12pt plus 2pt minus 2pt}
+\setlength{\abovecaptionskip}{8pt}
+\setlength{\belowcaptionskip}{6pt}
 
 \hyphenation{op-tical net-works semi-conduc-tor}
