@@ -13,6 +13,10 @@ from peptide_pipeline.chemist.chemist_agent.config_chemist import ChemistConfig
 def render():
     icon_path = Path(__file__).resolve().parents[1] / "icons" / "chemistry.svg"
     icon_b64 = base64.b64encode(icon_path.read_bytes()).decode("utf-8")
+    download_icon_path = Path(__file__).resolve().parents[1] / "icons" / "download.svg"
+    download_icon_b64 = base64.b64encode(download_icon_path.read_bytes()).decode("utf-8")
+    csv_icon_path = Path(__file__).resolve().parents[1] / "icons" / "csv.svg"
+    csv_icon_b64 = base64.b64encode(csv_icon_path.read_bytes()).decode("utf-8")
     col_left, col_right = st.columns(2)
 
     st.markdown(
@@ -96,8 +100,21 @@ def render():
                         # Global CSV export logic
                         df_global = pd.DataFrame(flattened_results)
                         csv = df_global.to_csv(index=False).encode('utf-8')
+                        st.markdown(
+                            f"""
+                            <div style=\"display:flex; align-items:center; gap:0.5rem; margin: 0.5rem 0 0.6rem 0;\">
+                                <img src=\"data:image/svg+xml;base64,{download_icon_b64}\" width=\"20\" />
+                                <h3 style=\"margin:0;\">Export Results</h3>
+                            </div>
+                            <div style=\"display:flex; align-items:center; gap:0.4rem; margin-bottom:0.35rem;\">
+                                <img src=\"data:image/svg+xml;base64,{csv_icon_b64}\" width=\"18\" />
+                                <span style=\"font-weight:600;\">CSV</span>
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
                         st.download_button(
-                            label="📥 Download ALL Results as CSV",
+                            label="Download ALL Results as CSV",
                             data=csv,
                             file_name='chemist_evaluation_results.csv',
                             mime='text/csv',

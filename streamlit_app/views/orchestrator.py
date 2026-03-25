@@ -16,6 +16,12 @@ from peptide_pipeline.chemist.chemist_agent.config_chemist import ChemistConfig
 def render():
     icon_path = Path(__file__).resolve().parents[1] / "icons" / "pipeline.svg"
     icon_b64 = base64.b64encode(icon_path.read_bytes()).decode("utf-8")
+    download_icon_path = Path(__file__).resolve().parents[1] / "icons" / "download.svg"
+    download_icon_b64 = base64.b64encode(download_icon_path.read_bytes()).decode("utf-8")
+    csv_icon_path = Path(__file__).resolve().parents[1] / "icons" / "csv.svg"
+    csv_icon_b64 = base64.b64encode(csv_icon_path.read_bytes()).decode("utf-8")
+    json_icon_path = Path(__file__).resolve().parents[1] / "icons" / "json.svg"
+    json_icon_b64 = base64.b64encode(json_icon_path.read_bytes()).decode("utf-8")
 
     st.markdown(
         f"""
@@ -183,21 +189,47 @@ def render():
                         df_pep = pd.DataFrame(pep_data)
                         st.dataframe(df_pep, hide_index=True, width='stretch')
                         
-                st.markdown("### 📥 Export Results")
+                st.markdown(
+                    f"""
+                    <div style=\"display:flex; align-items:center; gap:0.5rem; margin: 0.5rem 0 1rem 0;\">
+                        <img src=\"data:image/svg+xml;base64,{download_icon_b64}\" width=\"20\" />
+                        <h3 style=\"margin:0;\">Export Results</h3>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
                 col_csv, col_json = st.columns(2)
                 
                 df_global = pd.DataFrame(flattened_orchestrator)
                 with col_csv:
+                    st.markdown(
+                        f"""
+                        <div style=\"display:flex; align-items:center; gap:0.4rem; margin-bottom:0.35rem;\">
+                            <img src=\"data:image/svg+xml;base64,{csv_icon_b64}\" width=\"18\" />
+                            <span style=\"font-weight:600;\">CSV</span>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
                     st.download_button(
-                        label="📄 Download Results as CSV",
+                        label="Download Results as CSV",
                         data=df_global.to_csv(index=False).encode('utf-8'),
                         file_name='orchestrator_results.csv',
                         mime='text/csv',
                         width='stretch'
                     )
                 with col_json:
+                    st.markdown(
+                        f"""
+                        <div style=\"display:flex; align-items:center; gap:0.4rem; margin-bottom:0.35rem;\">
+                            <img src=\"data:image/svg+xml;base64,{json_icon_b64}\" width=\"18\" />
+                            <span style=\"font-weight:600;\">JSON</span>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
                     st.download_button(
-                        label="📦 Download Results as JSON",
+                        label="Download Results as JSON",
                         data=json.dumps(top_peptides, indent=4),
                         file_name='orchestrator_results.json',
                         mime='application/json',
