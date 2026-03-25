@@ -1,6 +1,7 @@
 import sys
 import os
 import logging
+import importlib
 import streamlit as st
 from streamlit_option_menu import option_menu
 
@@ -9,7 +10,24 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from streamlit_app.utils import StreamlitLogHandler
 from logger.logger import configure_logging
-from streamlit_app.views import orchestrator, train_models, generator_tests, chemist_tests, biologist_tests
+
+VIEW_MODULES = {
+    "Orchestrator": "streamlit_app.views.orchestrator",
+    "Train Models": "streamlit_app.views.train_models",
+    "Generator Tests": "streamlit_app.views.generator_tests",
+    "Chemist Tests": "streamlit_app.views.chemist_tests",
+    "Biologist Tests": "streamlit_app.views.biologist_tests",
+}
+
+
+def _load_view_renderer(view_name: str):
+    module_path = VIEW_MODULES.get(view_name)
+    if not module_path:
+        raise ValueError(f"Unknown view: {view_name}")
+    module = importlib.import_module(module_path)
+    if not hasattr(module, "render"):
+        raise AttributeError(f"Missing render() in module: {module_path}")
+    return module.render
 
 st.set_page_config(page_title="Multi-Expert Peptide Pipeline", layout="wide")
 
@@ -50,7 +68,11 @@ with st.sidebar:
         index=1,
     )
     st.session_state["selected_log_level"] = selected_log_level
-    configure_logging(level=selected_log_level, enable_file=False)
+
+    # Avoid reconfiguring the full logger stack on every Streamlit rerun.
+    if st.session_state.get("_configured_log_level") != selected_log_level:
+        configure_logging(level=selected_log_level, enable_file=False)
+        st.session_state["_configured_log_level"] = selected_log_level
 
 # --- LOG HANDLER CLEANUP ---
 root_logger = logging.getLogger()
@@ -59,13 +81,5 @@ for h in list(root_logger.handlers):
         root_logger.removeHandler(h)
 
 # --- VIEW ROUTING ---
-if selected_view == "Orchestrator":
-    orchestrator.render()
-elif selected_view == "Train Models":
-    train_models.render()
-elif selected_view == "Generator Tests":
-    generator_tests.render()
-elif selected_view == "Chemist Tests":
-    chemist_tests.render()
-elif selected_view == "Biologist Tests":
-    biologist_tests.render()
+render_view = _load_view_renderer(selected_view)
+render_view()

@@ -4,9 +4,21 @@ import json
 import time
 import argparse
 import os
+import logging
+import sys
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_OUTPUT_FILE = os.path.join(SCRIPT_DIR, 'training_data.json')
+
+# Configure logging for real-time output to stdout
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+    ],
+)
+logger = logging.getLogger(__name__)
 
 # Import RDKit for calculating Molecular Weight and LogP from SMILES
 try:
@@ -15,8 +27,8 @@ try:
     RDKIT_AVAILABLE = True
 except ImportError:
     RDKIT_AVAILABLE = False
-    print("Warning: RDKit is not installed. Molecular Weight and LogP calculations will be skipped.")
-    print("To install RDKit, run: pip install rdkit")
+    logger.warning("RDKit is not installed. Molecular Weight and LogP calculations will be skipped.")
+    logger.warning("To install RDKit, run: pip install rdkit")
 
 MAX_CONCURRENT_REQUESTS = 150  # Increased for faster concurrent fetching
 VALID_AMINO_ACIDS = set("ACDEFGHIKLMNPQRSTVWY") # Pre-compiled to save loop overhead
@@ -152,7 +164,8 @@ async def extract_generative_ai_dataset_async(limit=5000, batch_size=1000, outpu
     connector = aiohttp.TCPConnector(limit=MAX_CONCURRENT_REQUESTS)
     
     async with aiohttp.ClientSession(connector=connector) as session:
-        print(f"Goal: Fetch {limit} peptides. Async mode active.")
+        logger.info(f"Goal: Fetch {limit} peptides. Async mode active. Output file: {output_file}")
+        sys.stdout.flush()
 
         while total_fetched < limit:
             current_request_limit = min(batch_size, limit - total_fetched)
@@ -166,24 +179,26 @@ async def extract_generative_ai_dataset_async(limit=5000, batch_size=1000, outpu
                 'offset': offset
             }
             
-            print(f"\n[Batch Start] Offset: {offset}, Search Request: {current_request_limit}...")
+            logger.info(f"[Batch Start] Offset: {offset}, Search Request: {current_request_limit}...")
+            sys.stdout.flush()
             
             try:
                 async with session.get(SEARCH_URL, params=search_params, headers={'accept': 'application/json'}) as resp:
                     if resp.status != 200:
-                        print(f"Error fetching search list: {resp.status}")
+                        logger.error(f"Error fetching search list: {resp.status}")
                         break
                     res_json = await resp.json()
             except Exception as e:
-                print(f"Search Exception: {e}")
+                logger.error(f"Search Exception: {e}")
                 break
                 
             data = res_json.get('data', [])
             if not data:
-                print("No more data found.")
+                logger.info("No more data found.")
                 break
 
-            print(f"  > Found {len(data)} peptides. Fetching details concurrently...")
+            logger.info(f"  > Found {len(data)} peptides. Fetching {len(data)} details concurrently (max {MAX_CONCURRENT_REQUESTS} concurrent)...")
+            sys.stdout.flush()
             
             details_with_errors = await fetch_batch_details(session, data)
             
@@ -200,22 +215,24 @@ async def extract_generative_ai_dataset_async(limit=5000, batch_size=1000, outpu
             
             final_data.extend(valid_entries)
             
-            print(f"  > Processed and added {len(valid_entries)} valid entries from this batch.")
+            logger.info(f"  > Processed and added {len(valid_entries)} valid entries from this batch. Total so far: {len(final_data)}")
             if batch_errors:
-                print(f"  > Batch Errors Summary: {batch_errors}")
+                logger.warning(f"  > Batch Errors Summary: {batch_errors}")
+            sys.stdout.flush()
 
             offset += len(data)
             total_fetched += len(data)
             
             if len(data) < current_request_limit:
-                print("End of search results.")
+                logger.info("End of search results.")
                 break
                 
         # Save exactly once at the end to drastically reduce I/O overhead
         if final_data:
              with open(output_file, 'w') as f:
                 json.dump(final_data, f, indent=4)
-             print(f"\nSuccessfully saved {len(final_data)} total entries to {output_file}.")
+             logger.info(f"Successfully saved {len(final_data)} total entries to {output_file}.")
+             sys.stdout.flush()
 
     return final_data
 
@@ -223,14 +240,18 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fetch peptide data with physicochemical calculations (Async)")
     parser.add_argument("--limit", type=int, default=5000, help="Total number of peptides to fetch")
     parser.add_argument("--batch-size", type=int, default=1000, help="Search batch size")
+    parser.add_argument("--output-file", type=str, default=DEFAULT_OUTPUT_FILE, help="Output JSON file path")
 
     args = parser.parse_args()
 
     start_time = time.time()
     result = asyncio.run(extract_generative_ai_dataset_async(
         limit=args.limit,
-        batch_size=args.batch_size
+        batch_size=args.batch_size,
+        output_file=args.output_file
     ))
     end_time = time.time()
     
-    print(f"\nCompleted! Collected and processed {len(result)} peptides in {end_time - start_time:.2f} seconds.")
+    elapsed = end_time - start_time
+    logger.info(f"Completed! Collected and processed {len(result)} peptides in {elapsed:.2f} seconds.")
+    sys.stdout.flush()
