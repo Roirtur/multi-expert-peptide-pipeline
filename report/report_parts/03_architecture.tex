@@ -63,7 +63,7 @@ The global pipeline is organized around three specialized agents coordinated by 
 
 % Enforce a symmetric final bounding box around x=0 to guarantee true global centering.
 \pgfresetboundingbox
-\path (-5.9, -3.4) rectangle (8.2, 3);
+\path (-7.05, -3.4) rectangle (7.05, 3);
 
 \end{tikzpicture}
 }
@@ -72,27 +72,27 @@ The global pipeline is organized around three specialized agents coordinated by 
 \end{figure*}
 
 \subsection{The Orchestrator}\label{subsec:orchestrator}
-The orchestrator is the control layer that turns the three experts into one iterative optimization system. It enforces the same sequence at every round:
+The orchestrator is the control layer that turns the three experts into one iterative optimization system. At each round it:
 \begin{enumerate}
 	\item Generate a candidate batch from target constraints (user-provided or inferred from chemistry configuration).
 	\item Evaluate candidates with the Chemistry Agent (descriptor extraction, score, in-limits status). If no in-limits peptide is found, the round still proceeds with the available candidates to avoid loop collapse.
 	\item Score candidates with the Biology Agent, fuse expert signals, and update a global best-by-sequence ranking used both for parent selection and final Top-$K$ output.
 \end{enumerate}
-Each iteration therefore combines exploration (new proposals) and exploitation (reuse of high-ranked candidates) under a single decision policy. Stopping is handled centrally through a fixed iteration budget; if one round yields no usable candidates, the run continues.
+This combines exploration (new proposals) and exploitation (reuse of high-ranked candidates) under one policy and a fixed iteration budget.
 
-Two implementation choices are central to robustness and comparability across experiments:
+Two implementation choices are central to robustness and comparability:
 \begin{itemize}
 	\item \textbf{Global ranking across rounds:} one best entry is kept per unique sequence, so strong early candidates remain competitive.
 	\item \textbf{Round continuity under strict filtering:} biology scoring can still be applied when chemistry yields no in-limits peptides, preventing starvation.
 \end{itemize}
-This design supports reproducible experimentation: run behavior changes through orchestrator parameters, without modifying expert modules. The orchestrator also provides full traceability by recording round-wise events and outcomes:
+The orchestrator also records round-wise events for traceability:
 \begin{itemize}
 	\item Input settings
 	\item Filtered populations
 	\item Expert scores
 	\item Selected candidates
 \end{itemize}
-This log-centric structure makes the optimization path auditable end to end.
+This log-centric structure makes optimization paths auditable end to end.
 
 \subsection{Generator Agent}\label{subsec:designer}
 The final generator used in the pipeline is a Conditional Variational Autoencoder (CVAE). An unconditional VAE was tested first, but because it has no target-conditioning mechanism, sampled sequences were too random with respect to the requested profile and did not provide useful candidates for iterative optimization.
@@ -104,9 +104,7 @@ q_{\phi}(z \mid x, y), \qquad p_{\theta}(x \mid z, y).
 
 In the implemented model, the condition vector is concatenated with the peptide input before encoding and concatenated again with the latent representation before decoding. This design allows generation to remain consistent with the training distribution while being biased toward requested physicochemical targets. The condition vector includes sequence-level and physicochemical descriptors (for example length, molecular weight, charge-related terms, hydrophobicity-related terms, and developability proxies such as \(\log P\), hydrogen-bond counts, and TPSA).
 
-In the current implementation, each property is encoded as a scalar value. Missing entries are replaced by predefined defaults, user-provided constraints override these defaults, and the resulting vector is padded or truncated to match the configured conditioning dimensionality.
-
-This conditioning strategy is what makes the generator useful for directed design in our loop: candidates are not only plausible peptide sequences, but are also steered toward the chemistry profile required by downstream filtering and ranking.
+In the current implementation, each property is encoded as a scalar value. Missing entries are replaced by predefined defaults, user constraints override these defaults, and the final vector is padded or truncated to match the configured conditioning dimensionality. This makes generation both plausible and directed toward downstream chemistry filtering.
 
 \subsubsection{Physicochemical Conditioning}
 

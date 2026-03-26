@@ -218,7 +218,6 @@ database/*.json
 #report files
 report/*
 
-experiments/*.csv
 
 diapo/*
 !diapo/*.tex
@@ -227,10 +226,14 @@ diapo/*
 !diapo/*.pdf
 !diapo/images
 !diapo/sections
+*.fls
+*.aux
+*.fdb_latexmk
+*.synctex.gz
 !report/*.pdf
-!report/*.tex
 !report/*.bib
-!report/*png
+!report/*.png
+!report/*.tex
 
 
 experiments/*.csv

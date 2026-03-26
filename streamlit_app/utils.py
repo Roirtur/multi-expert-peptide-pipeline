@@ -2,16 +2,31 @@
 import os
 import sys
 import logging
+from functools import lru_cache
 from collections import deque
 import streamlit as st
 import streamlit.components.v1 as components
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from peptide_pipeline.generator.cvae_generator_agent.cvae_generator import CVAEGenerator
-from peptide_pipeline.generator.vae_generator_agent.vae_generator import VAEGenerator
-from peptide_pipeline.biologist.esm_cos_bio_agent.esm_biologist_cos import ESMBiologistCos
-from peptide_pipeline.biologist.esm_l2_bio_agent.esm_biologist_global_l2 import ESMBiologistGlobalL2
-from peptide_pipeline.chemist.chemist_agent.config_chemist import ChemistConfig
+
+
+@lru_cache(maxsize=1)
+def _get_model_classes():
+    from peptide_pipeline.generator.cvae_generator_agent.cvae_generator import CVAEGenerator
+    from peptide_pipeline.generator.vae_generator_agent.vae_generator import VAEGenerator
+    from peptide_pipeline.biologist.esm_cos_bio_agent.esm_biologist_cos import ESMBiologistCos
+    from peptide_pipeline.biologist.esm_l2_bio_agent.esm_biologist_global_l2 import ESMBiologistGlobalL2
+
+    return CVAEGenerator, VAEGenerator, ESMBiologistCos, ESMBiologistGlobalL2
+
+
+@lru_cache(maxsize=1)
+def _get_chemist_config_class():
+    from peptide_pipeline.chemist.chemist_agent.config_chemist import ChemistConfig
+
+    return ChemistConfig
+
+
 class StreamlitLogHandler(logging.Handler):
     def __init__(self, log_placeholder, max_lines=500):
         super().__init__()
@@ -25,10 +40,26 @@ class StreamlitLogHandler(logging.Handler):
             self.logs.append(log_entry)
             
             import html
-            escaped_logs = html.escape("".join(self.logs))
+            # Color-code logs based on level
+            colored_logs = []
+            for log in self.logs:
+                if "ERROR" in log or "CRITICAL" in log:
+                    color = "#ff4b4b"  # Red
+                elif "WARNING" in log:
+                    color = "#ffa500"  # Orange
+                elif "SUCCESS" in log or "Completed" in log:
+                    color = "#09ab3b"  # Green
+                elif "INFO" in log:
+                    color = "#a4c8ec"  # Blue
+                else:
+                    color = "#808080"  # Gray
+                
+                escaped = html.escape(log)
+                colored_logs.append(f'<span style="color: {color};">{escaped}</span>')
+            
             styled_html = f'''
-            <div style="max-height: 400px; overflow-y: auto; background-color: rgba(128, 128, 128, 0.05); border: 1px solid rgba(128,128,128,0.2); border-radius: 0.5rem; padding: 1rem;">
-                <pre style="margin: 0; font-family: monospace; font-size: 0.85em; white-space: pre-wrap;">{escaped_logs}</pre>
+            <div style="max-height: 500px; overflow-y: auto; background-color: #0e1117; border: 1px solid #30363d; border-radius: 0.5rem; padding: 1rem;">
+                <pre style="margin: 0; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 0.85em; white-space: pre-wrap; color: #c9d1d9; line-height: 1.5;">{'<br>'.join(colored_logs)}</pre>
             </div>
             '''
             self.log_placeholder.markdown(styled_html, unsafe_allow_html=True)
@@ -56,6 +87,39 @@ def highlight_error_card(field_name):
     </script>
     """
     components.html(js, height=0, width=0)
+
+def format_colorized_logs(log_lines):
+    """Format log lines with color coding based on content keywords."""
+    import html
+    colored_logs = []
+    
+    for line in log_lines:
+        # Determine color based on keywords
+        if "ERROR" in line or "Failed" in line or "Exception" in line:
+            color = "#ff4b4b"  # Red
+        elif "WARNING" in line or "warning" in line:
+            color = "#ffa500"  # Orange
+        elif "SUCCESS" in line or "successfully" in line.lower() or "saved" in line.lower():
+            color = "#09ab3b"  # Green
+        elif "INFO" in line or "Completed" in line or "Goal:" in line:
+            color = "#91beec"  # Blue
+        elif "[Batch Start]" in line:
+            color = "#c678dd"  # Purple
+        elif "Found" in line or "Processed" in line or "Total" in line:
+            color = "#56b6f2"  # Light blue
+        else:
+            color = "#c9d1d9"  # Light gray
+        
+        escaped = html.escape(line)
+        colored_logs.append(f'<div style="color: {color}; margin: 0.25rem 0;">{escaped}</div>')
+    
+    styled_html = f'''
+    <div style="max-height: 500px; overflow-y: auto; background-color: #0e1117; border: 1px solid #30363d; border-radius: 0.5rem; padding: 1rem; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 0.85em; line-height: 1.6;">
+        {''.join(colored_logs)}
+    </div>
+    '''
+    return styled_html
+
 @st.cache_data
 def load_config():
     config_path = os.path.join(os.path.dirname(__file__), "config.json")
@@ -109,6 +173,7 @@ def render_chemist_form(prefix="chem_"):
     chem_config_data = {}
     chem_errors = {}
 
+    ChemistConfig = _get_chemist_config_class()
     fields = list(ChemistConfig.model_fields.items())
 
     # 1) Scalars first (full width), e.g. pH
@@ -154,6 +219,7 @@ def get_available_models(model_type):
 
 def instantiate_generator(selected_gen, model_file="Base (Untrained)"):
     import torch
+    CVAEGenerator, VAEGenerator, _, _ = _get_model_classes()
     gen_info = generators_config.get(selected_gen, {})
     hyperparams = {param["id"]: param["default"] for param in gen_info.get("hyperparameters", [])}
 
@@ -173,6 +239,7 @@ def instantiate_generator(selected_gen, model_file="Base (Untrained)"):
     return gen
 
 def instantiate_biologist(selected_bio, reference_sequence, bio_params_vals):
+    _, _, ESMBiologistCos, ESMBiologistGlobalL2 = _get_model_classes()
     if selected_bio == "ESMBiologistGlobalL2":
         return ESMBiologistGlobalL2(reference_peptide=reference_sequence, **bio_params_vals)
     else:

@@ -48,8 +48,7 @@ We report six core metrics, computed at run level and on final Top-$K$ outputs:
 Final ranking is built globally across rounds (best-by-sequence retention), then truncated to Top-$K$.
 
 \subsection{Baselines}\label{subsec:baselines}
-The baseline is designed as a simpler non-agentic reference to test whether the proposed multi-expert iterative pipeline provides measurable gains. Concretely, we use a standalone Conditional Variational Autoencoder (CVAE) that directly generates peptide candidates from conditioning features, without chemistry/bio critique loops and without orchestrated revision rounds.
-This baseline CVAE is trained on a dataset fetched from DBAASP (as suggested by the chemist) which retains sequence-level and physicochemical fields used for conditioning (length, pH, molecular weight, logP, net charge, isoelectric point, hydrophobicity, and cationicity). 
+The baseline is a simpler non-agentic reference used to test whether iterative multi-expert coordination provides measurable gains. We use a standalone Conditional Variational Autoencoder (CVAE) that generates peptide candidates from conditioning features, without chemistry/bio critique loops or orchestration rounds. Training data are fetched from DBAASP and retain sequence-level and physicochemical conditioning fields (length, pH, molecular weight, logP, net charge, isoelectric point, hydrophobicity, cationicity).
 
 
 \begin{figure}[H]
@@ -118,7 +117,7 @@ This baseline CVAE is trained on a dataset fetched from DBAASP (as suggested by 
 
 % Symmetric bounding box to enforce true horizontal centering.
 \pgfresetboundingbox
-\path (-6.025, -3.3) rectangle (7.8, 2.8);
+\path (-7.8, -3.3) rectangle (7.8, 2.8);
 
 \end{tikzpicture}
 }
@@ -127,8 +126,4 @@ This baseline CVAE is trained on a dataset fetched from DBAASP (as suggested by 
 \end{figure}
 
 
-In practice, many API entries contain missing values for one or more properties, so absent fields are replaced with fixed defaults before standardization. This is not an ideal dataset from a quality standpoint, but it provides a stable comparison anchor for proof-of-concept evaluation.
-
-Implementation-wise, the baseline is a GRU-based CVAE: the encoder maps sequence-condition pairs to latent Gaussian parameters, and the autoregressive decoder reconstructs sequences conditioned on latent code and property vector. Training uses cross-entropy reconstruction, KL regularization, Adam optimization, and annealed $\beta$. At inference, candidates are sampled from the latent prior under a target condition vector (scaled with the training \texttt{StandardScaler}), with temperature and top-$k$ sampling controlling exploration.
-
-Unlike the full pipeline, this baseline performs one-shot conditional generation without multi-agent feedback or round-level refinement.
+Many API entries contain missing values, so absent fields are replaced with fixed defaults before standardization; this is imperfect but provides a stable comparison anchor. The baseline is a GRU-based CVAE: the encoder maps sequence-condition pairs to latent Gaussian parameters, and the autoregressive decoder reconstructs sequences conditioned on latent code and property vector. Training uses cross-entropy reconstruction, KL regularization, Adam, and annealed $\beta$. At inference, candidates are sampled from the latent prior under a scaled target condition vector, with temperature and top-$k$ sampling controlling exploration. Unlike the full pipeline, this baseline performs one-shot conditional generation without round-level feedback.
