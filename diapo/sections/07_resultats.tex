@@ -4,20 +4,17 @@
     \begin{columns}[T,totalwidth=\textwidth]
         \column{0.5\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{images/nb_iterations.png}
+        \includegraphics[width=\linewidth]{images/pipeline_effect_of_nb_iterations.png}
 
         \column{0.5\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{images/nb_peptides.png}
+        \includegraphics[width=\linewidth]{images/pipeline_effect_of_nb_peptide.png}
     \end{columns}
+    \raggedleft \tiny \textcolor{gray}{Runtime: RTX 4070 (Portable), Ryzen 7350XT, 16Go RAM}
 
-    \begin{center}
-        \scriptsize Configuration: RTX 4070 (portable), 16 GB RAM, Ryzen 7 7350XT
-    \end{center}
-
-    \begin{block}{Message clé}
+    \begin{block}{Analyse}
         \scriptsize
-        Plus d'itérations et plus de peptides par round augmentent très légèrement le score, mais le temps d'exécution augmente fortement..
+        Augmenter le budget de recherche améliore très légèrement la qualité mais rapidement le runtime, suggérant une possibilitée d'amélioration d'orchestrateur.
     \end{block}
 \end{frame}
 
@@ -26,36 +23,44 @@
     \begin{columns}[T,totalwidth=\textwidth]
         \column{0.60\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{images/target_length.png}
+        \includegraphics[width=\linewidth]{images/pipeline_performance_per_target_length.png}
 
         \column{0.36\textwidth}
         \begin{block}{Analyse}
             \footnotesize
             \begin{itemize}
-                \item Les cibles très courtes (2--3) sont les plus difficiles.
-                \item Le score augmente puis se stabilise autour de $\sim 0.92$ pour des longueurs plus grandes.
-                \item Le runtime monte de façon modérée.
+                \item Les cibles très courtes (2--3) restent les plus difficiles.
+                \item Le score remonte ensuite jusqu'à un plateau vers la longueur 11.
             \end{itemize}
         \end{block}
+        
+        \raggedleft \tiny \textcolor{gray}{Runtime: RTX 4070 (Portable), Ryzen 7350XT, 16Go RAM}
     \end{columns}
+    \begin{alertblock}{Attention}
+        \footnotesize
+        Les scores élevés sur des longueurs pathologiques très courtes peuvent refléter
+        une faiblesse de l'expert biologique plus qu'une plausibilité biologique réelle.
+    \end{alertblock}
+
+
 \end{frame}
 
 \begin{frame}
-    \frametitle{Pipeline vs baseline (score et diversité)}
+    \frametitle{Pipeline vs baseline selon la difficulté}
     \begin{columns}[T,totalwidth=\textwidth]
-        \column{0.38\textwidth}
+        \column{0.58\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{images/score_per_target_length.png}
+        \includegraphics[width=\linewidth]{images/average_combined_score_by_target_length.png}
 
-        \column{0.62\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{images/unique_count.png}
+        \column{0.40\textwidth}
+        \begin{block}{Analyse}
+            \footnotesize
+            \begin{itemize}
+                \item Sur cibles courtes (difficiles), l'itération aide clairement
+                \item Sur cibles longues (faciles), le gain n'est pas systématique
+                \item Plus stable avec plus d'itérations
+            \end{itemize}
+        \end{block}
+
     \end{columns}
-
-    \vspace{0.3em}
-    \begin{block}{Synthèse}
-        \footnotesize
-        Le pipeline est \textbf{proche de la baseline} sur cibles longues, mais \textbf{meilleur sur cibles courtes}.
-        Côté diversité, le pipeline génère nettement plus de séquences uniques et réduit les duplicats.
-    \end{block}
 \end{frame}
