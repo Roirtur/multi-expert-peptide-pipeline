@@ -4,15 +4,16 @@
     \frametitle{Discussion: limites actuelles}
     \begin{block}{Portée des résultats}
         \footnotesize
-        Le pipeline est un \textbf{PoC in silico}: les signaux chimie/biologie guident l'optimisation, mais ne remplacent pas une validation expérimentale.
+        Le pipeline est un \textbf{PoC in silico}: les signaux chimie/biologie guident l'optimisation, mais ne remplacent pas une validation expérimentale. Les résultats sont des preuves d'ingénierie et des pistes d'amélioration, pas des conclusions biologiques définitives.
     \end{block}
 
     \begin{block}{Limites techniques principales}
         \footnotesize
         \begin{itemize}
             \item Génération actuellement en \textbf{longueur fixe}.
-            \item Qualité du contrôle dépendante de la \textbf{qualité des labels} de training.
-            \item Score bio ESM utile pour classer, mais \textbf{pas une vérité terrain} d'activité.
+            \item Contrôle conditionnel dépendant de la \textbf{qualité des labels} et des variables de conditioning fournis lors de l'entraînement.
+            \item Signal biologique (ESM): bon proxy d'ordre mais \textbf{pas une vérité expérimentale}, risque d'incertitude pour cibles très courtes.
+            \item Orchestrateur: gains marginaux en qualité pour budgets élevés, signe d'une efficacité d'échantillonnage perfectible.
         \end{itemize}
     \end{block}
 \end{frame}
@@ -20,15 +21,13 @@
 \begin{frame}
     \frametitle{Perspectives prioritaires}
     \begin{itemize}
-        \item \textbf{Entrée en langage naturel}: LLM pour traduire des objectifs utilisateurs en contraintes structurées.
-        \item \textbf{Chimie enrichie}: ajouter des descripteurs moléculaires (ex. dérivés SMILES) en complément des propriétés séquence.
-        \item \textbf{Biologiste spécialisé peptides}: modèle target-conditionné entraîné/fine-tuné sur données peptides validées.
-        \item \textbf{Généralisation bio}: améliorer la robustesse sur espèces peu documentées ou émergentes.
+        \item \textbf{Biologiste peptide-spécifique}: entraînement/fine-tuning sur jeux de données peptide-annotés pour produire un score plus discriminatif (activité et risques séparés).
+        \item \textbf{Orchestrateur exploration-aware}: politiques adaptatives (exploration dynamique, sélection par incertitude/diversité) pour améliorer rendement qualité/compute.
+        \item \textbf{Interface plus expressive}: LLM comme couche d'interface pour traduire objectifs utilisateurs (langage naturel) en contraintes structurées.
+        \item \textbf{Chimie enrichie}: ajouter des descripteurs dérivés (SMILES, fingerprints) et intégrer évaluations de synthétisabilité.
     \end{itemize}
+    \vspace{0.5em}
     \begin{center}
-        $\implies$ Meilleure fiabilité des entrées \& résultats.
-        \\
-        $\implies$ Utilisation par public non-expert.
-        
+        \footnotesize $\implies$ Ces axes ciblent la robustesse du signal, la contrôlabilité du générateur et l'efficacité de l'orchestration.
     \end{center}
 \end{frame}
