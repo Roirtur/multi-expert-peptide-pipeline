@@ -1,52 +1,7 @@
 \section{Résultats et évaluation du pipeline}
-\begin{frame}
-    \frametitle{Résultats: effet des itérations et du batch}
-    \begin{columns}[T,totalwidth=\textwidth]
-        \column{0.5\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{images/pipeline_effect_of_nb_iterations.png}
-
-        \column{0.5\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{images/pipeline_effect_of_nb_peptide.png}
-    \end{columns}
-    \raggedleft \tiny \textcolor{gray}{Runtime: RTX 4070 (Portable), Ryzen 7350XT, 16Go RAM}
-
-    \begin{block}{Analyse}
-        \scriptsize
-        Augmenter le budget de recherche améliore très légèrement la qualité mais rapidement le runtime, suggérant une possibilitée d'amélioration d'orchestrateur.
-    \end{block}
-\end{frame}
 
 \begin{frame}
-    \frametitle{Résultats: impact de la longueur cible}
-    \begin{columns}[T,totalwidth=\textwidth]
-        \column{0.60\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{images/pipeline_performance_per_target_length.png}
-
-        \column{0.36\textwidth}
-        \begin{block}{Analyse}
-            \footnotesize
-            \begin{itemize}
-                \item Les cibles très courtes (2--3) restent les plus difficiles.
-                \item Le score remonte ensuite jusqu'à un plateau vers la longueur 11.
-            \end{itemize}
-        \end{block}
-        
-        \raggedleft \tiny \textcolor{gray}{Runtime: RTX 4070 (Portable), Ryzen 7350XT, 16Go RAM}
-    \end{columns}
-    \begin{alertblock}{Attention}
-        \footnotesize
-        Les scores élevés sur des longueurs pathologiques très courtes peuvent refléter
-        une faiblesse de l'expert biologique plus qu'une plausibilité biologique réelle.
-    \end{alertblock}
-
-
-\end{frame}
-
-\begin{frame}
-    \frametitle{Pipeline vs baseline selon la difficulté}
+    \frametitle{Pipeline vs Baseline}
     \begin{columns}[T,totalwidth=\textwidth]
         \column{0.58\textwidth}
         \centering
@@ -63,4 +18,51 @@
         \end{block}
 
     \end{columns}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Etudes d'itérations et de batch}
+    \begin{columns}[T]
+        \column{0.4\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/pipeline_effect_of_nb_iterations.png}
+
+        \column{0.4\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/pipeline_effect_of_nb_peptide.png}
+    \end{columns}
+    
+    \begin{block}{Analyse}
+        \scriptsize
+        Augmenter le budget de recherche améliore très légèrement la qualité mais rapidement le runtime, suggérant une possibilitée d'amélioration d'orchestrateur.
+    \end{block}
+    \raggedright \tiny \textcolor{gray}{Runtime: RTX 4070 (Portable), Ryzen 7350XT, 16Go RAM}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Impact de la longueur cible}
+    
+    \begin{columns}[T] 
+        \column{0.40\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/pipeline_performance_per_target_length.png}
+
+        \column{0.36\textwidth}
+        \begin{block}{Analyse}
+            \footnotesize
+            \begin{itemize}
+                \item Les cibles très courtes (2--3) restent les plus difficiles.
+                \item Le score remonte ensuite jusqu'à un plateau vers la longueur 11.
+            \end{itemize}
+        \end{block}
+        
+    \end{columns}
+    
+    \begin{alertblock}{Attention}
+        \footnotesize
+        Les scores élevés sur des longueurs pathologiques très courtes peuvent refléter
+        une faiblesse de l'expert biologique plus qu'une plausibilité biologique réelle.
+    \end{alertblock}
+    \raggedright \tiny \textcolor{gray}{Runtime: RTX 4070 (Portable), Ryzen 7350XT, 16Go RAM}
+
 \end{frame}
