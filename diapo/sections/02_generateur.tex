@@ -3,8 +3,8 @@
     \frametitle{Générateur}
     \begin{block}{Modèle du générateur}
         \begin{itemize}
-        \item Modèle fait main générant des séquences de peptides à partir de séquence ou propriétés souhaitées
-        \item Entraîné sur une base de données de peptides connus et leurs propriétés
+        \item Modèle générant des séquences de peptides à partir de séquence ou propriétés souhaitées
+        \item Entraîné \textit{from scratch} sur une base de données de peptides connus et leurs propriétés
         \item Capable de générer des peptides avec des propriétés spécifiques (ex: propriétés chimiques)
         \end{itemize}
     \end{block}
@@ -55,10 +55,10 @@
         \item Évaluation de la qualité des peptides générés en comparant leurs propriétés à celles des peptides connus
         \end{itemize}
         \centering
-        Lorsqu'on donne la sequence KLFKRWKHLFR de taille 11 et ses propriétés physico-chimiques au CVAE, il génère la sequence RKLKLFFRLLR avec des propriétés similaires.
+        Lorsqu'on donne la sequence KLFKRWKHLFR (peptide connu), une taille 11 et des propriétés physico-chimiques au CVAE, il génère la sequence RKLKLFFRLLR avec des propriétés similaires (selon nos agents).
 
         \begin{itemize}
-        \item Utilisation de métriques telles que la diversité, la validité et la nouveauté des séquences générées
+        \item Utilisation de métriques telles que la diversité et la validité
         \end{itemize}
     \end{block}
 \end{frame}

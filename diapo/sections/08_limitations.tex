@@ -1,7 +1,7 @@
 \section{Discussion et perspectives}
 
 \begin{frame}
-    \frametitle{Discussion: limites actuelles}
+    \frametitle{Discussion}
     \begin{block}{Portée des résultats}
         \footnotesize
         Le pipeline est un \textbf{PoC in silico}: les signaux chimie/biologie guident l'optimisation, mais ne remplacent pas une validation expérimentale. Les résultats sont des preuves d'ingénierie et des pistes d'amélioration, pas des conclusions biologiques définitives.
@@ -10,16 +10,15 @@
     \begin{block}{Limites techniques principales}
         \footnotesize
         \begin{itemize}
-            \item Génération actuellement en \textbf{longueur fixe}.
             \item Contrôle conditionnel dépendant de la \textbf{qualité des labels} et des variables de conditioning fournis lors de l'entraînement.
-            \item Signal biologique (ESM): bon proxy d'ordre mais \textbf{pas une vérité expérimentale}, risque d'incertitude pour cibles très courtes.
+            \item Signal biologique (ESM): bon proxy d'ordre mais \textbf{pas une vérité expérimentale}, risque d'incertitude.
             \item Orchestrateur: gains marginaux en qualité pour budgets élevés, signe d'une efficacité d'échantillonnage perfectible.
         \end{itemize}
     \end{block}
 \end{frame}
 
 \begin{frame}
-    \frametitle{Perspectives prioritaires}
+    \frametitle{Perspectives}
     \begin{itemize}
         \item \textbf{Biologiste peptide-spécifique}: entraînement/fine-tuning sur jeux de données peptide-annotés pour produire un score plus discriminatif (activité et risques séparés).
         \item \textbf{Orchestrateur exploration-aware}: politiques adaptatives (exploration dynamique, sélection par incertitude/diversité) pour améliorer rendement qualité/compute.
