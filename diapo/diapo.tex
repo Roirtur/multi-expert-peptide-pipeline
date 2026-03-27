@@ -60,6 +60,27 @@
 % Define custom minimize command
 \newcommand{\minimize}[1]{\textit{\footnotesize #1}}
 
+% --- Person marker dots (slide ownership) ---
+% Usage inside a frame:
+%   \persondotleft{NathanColor}
+%   \persondotright{EduardColor}
+\definecolor{NathanColor}{RGB}{55, 170, 55}
+\definecolor{EduardColor}{RGB}{180, 55, 180}
+\definecolor{ArthurColor}{RGB}{170, 170, 55}
+\definecolor{NielsColor}{RGB}{180, 55, 55}
+
+\newcommand{\persondotleft}[2][2.8pt]{%
+    \begin{tikzpicture}[remember picture,overlay]
+        \fill[#2] ([xshift=0.55cm,yshift=-0.55cm]current page.north west) circle (#1);
+    \end{tikzpicture}%
+}
+
+\newcommand{\persondotright}[2][2.8pt]{%
+    \begin{tikzpicture}[remember picture,overlay]
+        \fill[#2] ([xshift=-0.55cm,yshift=-0.55cm]current page.north east) circle (#1);
+    \end{tikzpicture}%
+}
+
 % Logo Placeholder
 \titlegraphic{
     \includegraphics[width=2cm]{images/ism.png}
@@ -76,6 +97,7 @@
 
 % Sommaire
 \begin{frame}{Plan de la présentation}
+    \persondotright[4pt]{NathanColor}
     \tableofcontents
 \end{frame}
 
