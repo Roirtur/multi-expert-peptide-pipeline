@@ -1,0 +1,113 @@
+\documentclass[10pt, aspectratio=1610]{beamer}
+
+% Packages requis
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{babel}
+\babelprovide[import,main]{french}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{tikz}
+\usetikzlibrary{shapes, arrows.meta, positioning, calc, chains, shadows, fit}
+\usepackage{caption}
+
+% --- Configuration du Thème (Style Université de Bordeaux) ---
+\usetheme{Madrid}
+\usecolortheme{dolphin}
+
+% Définition des couleurs approximatives de l'Université de Bordeaux
+\definecolor{UnivBlue}{RGB}{0, 51, 102}   % Bleu fonce
+\definecolor{UnivRed}{RGB}{153, 0, 0}     % Rouge/Bordeaux
+\definecolor{LayerBlue}{RGB}{200, 220, 255}
+\definecolor{LayerRed}{RGB}{255, 200, 200}
+\definecolor{LayerGreen}{RGB}{200, 255, 200}
+\definecolor{LayerYellow}{RGB}{255, 255, 200}
+
+% Application des couleurs
+\setbeamercolor{structure}{fg=UnivBlue}
+\setbeamercolor{palette primary}{bg=UnivBlue, fg=white}
+\setbeamercolor{palette secondary}{bg=UnivBlue!80, fg=white}
+\setbeamercolor{palette tertiary}{bg=UnivBlue!60, fg=white}
+\setbeamercolor{frametitle}{bg=UnivBlue, fg=white}
+\setbeamercolor{title}{bg=UnivBlue, fg=white}
+\setbeamercolor{block title}{bg=UnivBlue, fg=white}
+\setbeamercolor{alerted text}{fg=UnivRed}
+
+% --- Styles TikZ pour les architectures ---
+\tikzset{
+    block/.style={rectangle, draw, fill=white, align=center, rounded corners, drop shadow, font=\scriptsize},
+    conv/.style={block, fill=LayerBlue, minimum height=2em},
+    pool/.style={block, fill=LayerRed, minimum height=1.5em},
+    dense/.style={block, fill=LayerGreen, minimum height=2em},
+    op/.style={circle, draw, fill=LayerYellow, inner sep=1pt, font=\tiny},
+    arrow/.style={-{Stealth[scale=1.0]}, thick, color=UnivBlue},
+    label/.style={font=\tiny, color=gray}
+}
+
+% --- Informations de la présentation ---
+\title[multi-expert-peptide-pipeline]{ Multi Expert Peptide Pipeline}
+\subtitle{Projet de fin d'études}
+\author[N.F \& E.I \& A.M \& N.R]{Nathan Fitger \and Eduard Iliescu \and Arthur Macdonald \and Niels Roudeau \\[1em]
+{\small Supervisé par : Johan Samot (UB), Enzo Edderbah (ISM) et Akka Zemmari (UB/LABRI)}}
+\institute[Université de Bordeaux]{
+    Université de Bordeaux \\
+    Master 2 Informatique — Intelligence Artificielle
+}
+\date{Année 2025—2026}
+
+% Define custom minimize command
+\newcommand{\minimize}[1]{\textit{\footnotesize #1}}
+
+% --- Person marker dots (slide ownership) ---
+% Usage inside a frame:
+%   \persondotleft{NathanColor}
+%   \persondotright{EduardColor}
+\definecolor{NathanColor}{RGB}{55, 170, 55}
+\definecolor{EduardColor}{RGB}{180, 55, 180}
+\definecolor{ArthurColor}{RGB}{170, 170, 55}
+\definecolor{NielsColor}{RGB}{180, 55, 55}
+
+\newcommand{\persondotleft}[2][2.8pt]{%
+    \begin{tikzpicture}[remember picture,overlay]
+        \fill[#2] ([xshift=0.55cm,yshift=-0.55cm]current page.north west) circle (#1);
+    \end{tikzpicture}%
+}
+
+\newcommand{\persondotright}[2][2.8pt]{%
+    \begin{tikzpicture}[remember picture,overlay]
+        \fill[#2] ([xshift=-0.55cm,yshift=-0.55cm]current page.north east) circle (#1);
+    \end{tikzpicture}%
+}
+
+% Logo Placeholder
+\titlegraphic{
+    \includegraphics[width=2cm]{images/ism.png}
+    \includegraphics[width=2cm]{images/ubordeaux.png}
+    \includegraphics[width=2cm]{images/LABRI_BIG_0.png}
+}
+
+\begin{document}
+
+% 1. Slide de Titre
+\begin{frame}
+    \titlepage
+\end{frame}
+
+% Sommaire
+\begin{frame}{Plan de la présentation}
+    \persondotright[4pt]{NathanColor}
+    \tableofcontents
+\end{frame}
+
+\input{sections/01_intro_contexte.tex}
+\input{sections/02_generateur}
+\input{sections/03_chimiste.tex}
+\input{sections/04_biologiste.tex}
+\input{sections/05_architecture}
+\input{sections/06_Interface.tex}
+\input{sections/07_resultats}
+\input{sections/08_limitations}
+
+\end{document}

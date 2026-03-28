@@ -1,0 +1,22 @@
+\subsection{Expert Chimiste}
+\begin{frame}
+    \persondotright[4pt]{NielsColor}
+    \frametitle{Chimiste}
+    \begin{block}{Modèle du chimiste}
+        \begin{itemize}
+        \item Entrée: une ou des séquences de peptides (Format code peptidique).
+        \item Configuration: intervalles et cibles des propriétés chimiques souhaitées 
+        \item Utilise des règles chimiques et physiques pour donner un score à la peptide à partir des intervalles et cibles séléctionnés
+        \end{itemize}
+    \end{block}
+    \begin{block}{Propriétés chimiques évaluées}
+            Taille de la séquence, Poids moléculaire, Charge nette, LogP (coefficient de partage octanol-eau), Hydrophobicité, Point isoélectrique\dots
+    \end{block}
+    \begin{block}{Résultats du chimiste}
+        \begin{itemize}
+        \item Propriétées chimiques de la ou les peptides évalués (Poids moléculaire = 530, LogP = -0.5, \dots)
+        \item Score basé sur la distance entre propriété et cible souhaité ou présence dans l'intervale.
+        \item Présence ou non dans les intervalles de propriétés souhaitées.
+    \end{itemize}
+    \end{block}
+\end{frame}

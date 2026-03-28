@@ -1,0 +1,56 @@
+% --- Section 1: Présentation ---
+\section{Contexte et objectifs}
+\begin{frame}{Contexte et Objectifs}
+    \persondotright[4pt]{NathanColor}
+    \begin{center}
+        Pipeline agentique multi expert pour la découverte de peptides \textit{in silico}
+        \\
+        \footnotesize{in silico: réalisé par ordinateur, sans expérimentation physique.}
+        \\
+        \centering
+        \includegraphics[height=4cm]{images/peptide.png}
+    \end{center}
+\end{frame}
+
+\begin{frame}
+    \persondotright[4pt]{NathanColor}
+    \frametitle{Peptide}
+    \begin{itemize}
+        \item Chaîne composée d'au plus 50 acides aminés
+        \item 20 acides aminés différents (A,C,D,E,F,G,H,I,K,L,M,N,P,Q,R,S,T,V,W,Y)
+        \item Exprimé sous forme de séquence de lettres (ex: ACEFHKLMNPQY)
+        \item Sujet initial: bactéries dentaires (ex: Streptococcus mutans)
+    \end{itemize}
+
+    \begin{block}{Processus de découverte actuel}
+        \begin{itemize}
+            \item Découverte de peptides: criblage de bibliothèques, évolution dirigée
+            \item Propriétés à optimiser: activité biologique, stabilité, solubilité, etc.
+            \item Évaluation: tests biologiques, simulations moléculaires
+            \item Itération sur les resultats pour améliorer l'efficacité de la peptides
+            \item Coût élevé, temps long, taux de succès faible
+        \end{itemize}
+    \end{block}
+\end{frame}
+
+\section{Experts et Architecture}
+\begin{frame}
+    \persondotright[4pt]{EduardColor}
+    \frametitle{Pipeline}
+    \begin{center}
+        \begin{tikzpicture}
+        \node[rectangle, draw, fill=orange!20, minimum width=3cm, minimum height=1cm, align=center] (gen) at (0, 0) {Generator Agent};
+        \node[rectangle, draw, fill=blue!20, minimum width=3cm, minimum height=1cm, align=center] (chem) at (4, 0) {Chemistry Agent};
+        \node[rectangle, draw, fill=green!20, minimum width=3cm, minimum height=1cm, align=center] (bio) at (8, 0) {Biology Agent};
+
+        \draw[->] (gen) -- (chem);
+        \draw[->] (chem) -- (bio);
+        \end{tikzpicture}
+    \end{center}
+
+    \vspace{0.5em}
+    \begin{block}{Définition et rôle}
+        \footnotesize
+        Une chaîne d'étapes où la sortie d'un module devient l'entrée du suivant, permettant ainsi de répartir des tâches à différents experts.
+    \end{block}
+\end{frame}

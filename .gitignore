@@ -216,6 +216,16 @@ database/*.json
 *.pth
 
 #report files
+report/*
+
+
+diapo/*
+!diapo/*.tex
+!diapo/*.jpg
+!diapo/*.png
+!diapo/*.pdf
+!diapo/images
+!diapo/sections
 *.fls
 *.aux
 *.fdb_latexmk
