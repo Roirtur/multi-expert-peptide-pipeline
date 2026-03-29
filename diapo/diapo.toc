@@ -1,9 +1,0 @@
-\babel@toc {french}{}\relax 
-\beamer@sectionintoc {1}{Contexte et objectifs}{3}{0}{1}
-\beamer@sectionintoc {2}{Experts et Architecture}{5}{0}{2}
-\beamer@subsectionintoc {2}{1}{Expert Générateur de peptides}{6}{0}{2}
-\beamer@subsectionintoc {2}{2}{Expert Chimiste}{9}{0}{2}
-\beamer@subsectionintoc {2}{3}{Expert Biologiste}{10}{0}{2}
-\beamer@subsectionintoc {2}{4}{Architecture du pipeline multi-expert}{11}{0}{2}
-\beamer@sectionintoc {3}{Résultats et évaluation du pipeline}{12}{0}{3}
-\beamer@sectionintoc {4}{Discussion et perspectives}{15}{0}{4}

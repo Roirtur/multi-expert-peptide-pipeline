@@ -1,0 +1,34 @@
+\section{Discussion et perspectives}
+
+\begin{frame}
+    \persondotright[4pt]{NielsColor}
+    \frametitle{Discussion}
+    \begin{block}{Portée des résultats}
+        \footnotesize
+        Le pipeline est un \textbf{PoC in silico}: les signaux chimie/biologie guident l'optimisation, mais ne remplacent pas une validation expérimentale. Les résultats sont des preuves d'ingénierie et des pistes d'amélioration, pas des conclusions biologiques définitives.
+    \end{block}
+
+    \begin{block}{Limites techniques principales}
+        \footnotesize
+        \begin{itemize}
+            \item Contrôle conditionnel dépendant de la \textbf{qualité des labels} et des variables de conditioning fournis lors de l'entraînement.
+            \item Signal biologique (ESM): bon proxy d'ordre mais \textbf{pas une vérité expérimentale}, risque d'incertitude.
+            \item Orchestrateur: gains marginaux en qualité pour budgets élevés, signe d'une efficacité d'échantillonnage perfectible.
+        \end{itemize}
+    \end{block}
+\end{frame}
+
+\begin{frame}
+    \persondotright[4pt]{NielsColor}
+    \frametitle{Perspectives}
+    \begin{itemize}
+        \item \textbf{Biologiste peptide-spécifique}: entraînement/fine-tuning sur jeux de données peptide-annotés pour produire un score plus discriminatif (activité et risques séparés).
+        \item \textbf{Orchestrateur exploration-aware}: politiques adaptatives (exploration dynamique, sélection par incertitude/diversité) pour améliorer rendement qualité/compute.
+        \item \textbf{Interface plus expressive}: LLM comme couche d'interface pour traduire objectifs utilisateurs (langage naturel) en contraintes structurées.
+        \item \textbf{Chimie enrichie}: ajouter des descripteurs dérivés (SMILES, fingerprints) et intégrer évaluations de synthétisabilité.
+    \end{itemize}
+    \vspace{0.5em}
+    \begin{center}
+        \footnotesize $\implies$ Ces axes ciblent la robustesse du signal, la contrôlabilité du générateur et l'efficacité de l'orchestration.
+    \end{center}
+\end{frame}
